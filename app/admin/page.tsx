@@ -1,7 +1,7 @@
 // @ts-nocheck
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { supabase } from "../../lib/supabaseClient";
 import { useRouter } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
@@ -25,13 +25,31 @@ export default function AdminPage() {
   const [durations, setDurations] = useState([]);
   const [logs, setLogs] = useState([]);
   const [qrModal, setQrModal] = useState(null);
+  const [editModal, setEditModal] = useState(null);
   const [activeTab, setActiveTab] = useState("dashboard");
+
+  // Search & Sort states
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sortField, setSortField] = useState("employee_no");
+  const [sortDirection, setSortDirection] = useState("asc");
+
+  // Auto-refresh state
+  const [lastRefresh, setLastRefresh] = useState(new Date());
 
   const [formData, setFormData] = useState({
     employee_no: "",
     full_name: "",
     department: "",
     position: "",
+  });
+
+  const [editFormData, setEditFormData] = useState({
+    id: "",
+    employee_no: "",
+    full_name: "",
+    department: "",
+    position: "",
+    active: true,
   });
 
   useEffect(() => {
@@ -60,6 +78,16 @@ export default function AdminPage() {
     checkAuth();
   }, [router]);
 
+  // AUTO-REFRESH: Reload data every 30 seconds
+  useEffect(() => {
+    if (!isAdmin) return;
+    const interval = setInterval(() => {
+      loadData();
+      setLastRefresh(new Date());
+    }, 30000); // 30 seconds
+    return () => clearInterval(interval);
+  }, [isAdmin]);
+
   async function loadData() {
     const empRes = await fetch("/api/employees");
     const empData = await empRes.json();
@@ -78,6 +106,92 @@ export default function AdminPage() {
     if (logData.ok) setLogs(logData.logs);
   }
 
+  // SEARCH & SORT logic
+  const filteredAndSortedEmployees = useMemo(() => {
+    let filtered = employees.filter(emp =>
+      emp.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      emp.employee_no.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (emp.department && emp.department.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (emp.position && emp.position.toLowerCase().includes(searchTerm.toLowerCase()))
+    );
+
+    filtered.sort((a, b) => {
+      let aVal = a[sortField] || "";
+      let bVal = b[sortField] || "";
+      if (typeof aVal === "string") aVal = aVal.toLowerCase();
+      if (typeof bVal === "string") bVal = bVal.toLowerCase();
+
+      if (sortDirection === "asc") {
+        return aVal > bVal ? 1 : -1;
+      } else {
+        return aVal < bVal ? 1 : -1;
+      }
+    });
+
+    return filtered;
+  }, [employees, searchTerm, sortField, sortDirection]);
+
+  const filteredAndSortedStatus = useMemo(() => {
+    let filtered = employeeStatus.filter(emp =>
+      emp.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      emp.employee_no.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (emp.department && emp.department.toLowerCase().includes(searchTerm.toLowerCase()))
+    );
+
+    filtered.sort((a, b) => {
+      let aVal = a[sortField] || "";
+      let bVal = b[sortField] || "";
+      if (typeof aVal === "string") aVal = aVal.toLowerCase();
+      if (typeof bVal === "string") bVal = bVal.toLowerCase();
+
+      if (sortDirection === "asc") {
+        return aVal > bVal ? 1 : -1;
+      } else {
+        return aVal < bVal ? 1 : -1;
+      }
+    });
+
+    return filtered;
+  }, [employeeStatus, searchTerm, sortField, sortDirection]);
+
+  const filteredAndSortedDurations = useMemo(() => {
+    let filtered = durations.filter(emp =>
+      emp.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      emp.employee_no.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (emp.department && emp.department.toLowerCase().includes(searchTerm.toLowerCase()))
+    );
+
+    filtered.sort((a, b) => {
+      let aVal = a[sortField] || "";
+      let bVal = b[sortField] || "";
+      if (typeof aVal === "string") aVal = aVal.toLowerCase();
+      if (typeof bVal === "string") bVal = bVal.toLowerCase();
+
+      if (sortDirection === "asc") {
+        return aVal > bVal ? 1 : -1;
+      } else {
+        return aVal < bVal ? 1 : -1;
+      }
+    });
+
+    return filtered;
+  }, [durations, searchTerm, sortField, sortDirection]);
+
+  function handleSort(field) {
+    if (sortField === field) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDirection("asc");
+    }
+  }
+
+  function getSortIcon(field) {
+    if (sortField !== field) return " ↕";
+    return sortDirection === "asc" ? " ↑" : " ↓";
+  }
+
+  // CRUD Operations
   async function handleAddEmployee(e) {
     e.preventDefault();
     const res = await fetch("/api/employees", {
@@ -89,6 +203,53 @@ export default function AdminPage() {
     if (data.ok) {
       alert("Employee added successfully!");
       setFormData({ employee_no: "", full_name: "", department: "", position: "" });
+      loadData();
+    } else {
+      alert("Error: " + data.error);
+    }
+  }
+
+  function openEditModal(emp) {
+    setEditFormData({
+      id: emp.id,
+      employee_no: emp.employee_no,
+      full_name: emp.full_name,
+      department: emp.department || "",
+      position: emp.position || "",
+      active: emp.active,
+    });
+    setEditModal(emp);
+  }
+
+  async function handleUpdateEmployee(e) {
+    e.preventDefault();
+    const res = await fetch("/api/employees", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(editFormData),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      alert("Employee updated successfully!");
+      setEditModal(null);
+      loadData();
+    } else {
+      alert("Error: " + data.error);
+    }
+  }
+
+  async function handleDeleteEmployee(emp) {
+    const confirmed = confirm(`Are you sure you want to deactivate ${emp.full_name}?`);
+    if (!confirmed) return;
+
+    const res = await fetch("/api/employees", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: emp.id }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      alert("Employee deactivated successfully!");
       loadData();
     } else {
       alert("Error: " + data.error);
@@ -130,7 +291,15 @@ export default function AdminPage() {
       <header style={styles.header}>
         <div style={styles.headerContent}>
           <h1 style={styles.headerTitle}>📋 Attendance Admin</h1>
-          <button onClick={handleLogout} style={styles.logoutButton}>Logout</button>
+          <div style={{display: "flex", alignItems: "center", gap: 16}}>
+            <span style={{fontSize: 12, color: "#94a3b8"}}>
+              Auto-refresh: {lastRefresh.toLocaleTimeString()}
+            </span>
+            <button onClick={() => { loadData(); setLastRefresh(new Date()); }} style={styles.refreshButton}>
+              🔄 Refresh
+            </button>
+            <button onClick={handleLogout} style={styles.logoutButton}>Logout</button>
+          </div>
         </div>
       </header>
 
@@ -150,6 +319,20 @@ export default function AdminPage() {
       </nav>
 
       <main style={styles.mainContent}>
+        {/* SEARCH BAR */}
+        <div style={styles.searchContainer}>
+          <input
+            type="text"
+            placeholder="🔍 Search by name, employee no, department, or position..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={styles.searchInput}
+          />
+          {searchTerm && (
+            <button onClick={() => setSearchTerm("")} style={styles.clearSearchButton}>✕ Clear</button>
+          )}
+        </div>
+
         {/* DASHBOARD TAB */}
         {activeTab === "dashboard" && (
           <div>
@@ -178,14 +361,14 @@ export default function AdminPage() {
                 <table style={styles.table}>
                   <thead>
                     <tr>
-                      <th style={styles.th}>Employee</th>
-                      <th style={styles.th}>Department</th>
+                      <th style={styles.th} onClick={() => handleSort("full_name")}>Employee{getSortIcon("full_name")}</th>
+                      <th style={styles.th} onClick={() => handleSort("department")}>Department{getSortIcon("department")}</th>
                       <th style={styles.th}>Status</th>
                       <th style={styles.th}>Last Scan</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {employeeStatus.map((emp) => (
+                    {filteredAndSortedStatus.map((emp) => (
                       <tr key={emp.id} style={styles.tr}>
                         <td style={styles.td}>
                           <div style={{fontWeight: "600"}}>{emp.full_name}</div>
@@ -211,70 +394,65 @@ export default function AdminPage() {
 
         {/* DURATIONS TAB */}
         {activeTab === "durations" && (
-          <div>
-            <div style={styles.card}>
-              <h2 style={styles.cardTitle}>⏱️ Work Duration - Today</h2>
-              <p style={{color: "#6b7280", fontSize: 14, marginTop: -10}}>
-                Shows how long each employee has been inside the warehouse today.
-              </p>
-              <div style={styles.tableWrapper}>
-                <table style={styles.table}>
-                  <thead>
-                    <tr>
-                      <th style={styles.th}>Employee</th>
-                      <th style={styles.th}>Status</th>
-                      <th style={styles.th}>Current Shift</th>
-                      <th style={styles.th}>Today's Total</th>
-                      <th style={styles.th}>Sessions</th>
+          <div style={styles.card}>
+            <h2 style={styles.cardTitle}>⏱️ Work Duration - Today</h2>
+            <div style={styles.tableWrapper}>
+              <table style={styles.table}>
+                <thead>
+                  <tr>
+                    <th style={styles.th} onClick={() => handleSort("full_name")}>Employee{getSortIcon("full_name")}</th>
+                    <th style={styles.th}>Status</th>
+                    <th style={styles.th}>Current Shift</th>
+                    <th style={styles.th}>Today's Total</th>
+                    <th style={styles.th}>Sessions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredAndSortedDurations.map((emp) => (
+                    <tr key={emp.id} style={styles.tr}>
+                      <td style={styles.td}>
+                        <div style={{fontWeight: "600"}}>{emp.full_name}</div>
+                        <div style={{fontSize: "12px", color: "#6b7280"}}>{emp.employee_no}</div>
+                      </td>
+                      <td style={styles.td}>
+                        <span style={emp.current_status === "inside" ? styles.badgeInside : styles.badgeOutside}>
+                          {emp.current_status === "inside" ? "🟢 INSIDE" : "🔴 OUTSIDE"}
+                        </span>
+                      </td>
+                      <td style={styles.td}>
+                        {emp.current_status === "inside" ? (
+                          <span style={{fontWeight: "700", color: "#22c55e", fontSize: 16}}>
+                            ⏳ {formatDuration(emp.current_duration_minutes)}
+                          </span>
+                        ) : (
+                          <span style={{color: "#9ca3af"}}>—</span>
+                        )}
+                      </td>
+                      <td style={styles.td}>
+                        <span style={{fontWeight: "700", fontSize: 16, color: "#1e293b"}}>
+                          {formatDuration(emp.today_total_minutes)}
+                        </span>
+                      </td>
+                      <td style={styles.td}>
+                        {emp.today_sessions.length > 0 ? (
+                          <div style={{fontSize: 12}}>
+                            {emp.today_sessions.map((session, idx) => (
+                              <div key={idx} style={{marginBottom: 4, padding: "4px 8px", background: "#f8fafc", borderRadius: 4}}>
+                                {new Date(session.in_time).toLocaleTimeString()} → {new Date(session.out_time).toLocaleTimeString()}
+                                <span style={{fontWeight: "600", marginLeft: 8, color: "#3b82f6"}}>
+                                  ({formatDuration(session.duration_minutes)})
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <span style={{color: "#9ca3af"}}>No sessions today</span>
+                        )}
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {durations.map((emp) => (
-                      <tr key={emp.id} style={styles.tr}>
-                        <td style={styles.td}>
-                          <div style={{fontWeight: "600"}}>{emp.full_name}</div>
-                          <div style={{fontSize: "12px", color: "#6b7280"}}>{emp.employee_no}</div>
-                        </td>
-                        <td style={styles.td}>
-                          <span style={emp.current_status === "inside" ? styles.badgeInside : styles.badgeOutside}>
-                            {emp.current_status === "inside" ? "🟢 INSIDE" : "🔴 OUTSIDE"}
-                          </span>
-                        </td>
-                        <td style={styles.td}>
-                          {emp.current_status === "inside" ? (
-                            <span style={{fontWeight: "700", color: "#22c55e", fontSize: 16}}>
-                              ⏳ {formatDuration(emp.current_duration_minutes)}
-                            </span>
-                          ) : (
-                            <span style={{color: "#9ca3af"}}>—</span>
-                          )}
-                        </td>
-                        <td style={styles.td}>
-                          <span style={{fontWeight: "700", fontSize: 16, color: "#1e293b"}}>
-                            {formatDuration(emp.today_total_minutes)}
-                          </span>
-                        </td>
-                        <td style={styles.td}>
-                          {emp.today_sessions.length > 0 ? (
-                            <div style={{fontSize: 12}}>
-                              {emp.today_sessions.map((session, idx) => (
-                                <div key={idx} style={{marginBottom: 4, padding: "4px 8px", background: "#f8fafc", borderRadius: 4}}>
-                                  {new Date(session.in_time).toLocaleTimeString()} → {new Date(session.out_time).toLocaleTimeString()}
-                                  <span style={{fontWeight: "600", marginLeft: 8, color: "#3b82f6"}}>
-                                    ({formatDuration(session.duration_minutes)})
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <span style={{color: "#9ca3af"}}>No sessions today</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         )}
@@ -286,7 +464,7 @@ export default function AdminPage() {
               <h2 style={styles.cardTitle}>➕ Add New Employee</h2>
               <form onSubmit={handleAddEmployee} style={styles.form}>
                 <div style={styles.formRow}>
-                  <input type="text" placeholder="Employee No (e.g. EMP-002)" value={formData.employee_no} onChange={(e) => setFormData({ ...formData, employee_no: e.target.value })} style={styles.input} required />
+                  <input type="text" placeholder="Employee No" value={formData.employee_no} onChange={(e) => setFormData({ ...formData, employee_no: e.target.value })} style={styles.input} required />
                   <input type="text" placeholder="Full Name" value={formData.full_name} onChange={(e) => setFormData({ ...formData, full_name: e.target.value })} style={styles.input} required />
                 </div>
                 <div style={styles.formRow}>
@@ -298,27 +476,39 @@ export default function AdminPage() {
             </div>
 
             <div style={styles.card}>
-              <h2 style={styles.cardTitle}>👥 All Employees</h2>
+              <h2 style={styles.cardTitle}>👥 All Employees ({filteredAndSortedEmployees.length})</h2>
               <div style={styles.tableWrapper}>
                 <table style={styles.table}>
                   <thead>
                     <tr>
-                      <th style={styles.th}>No</th>
-                      <th style={styles.th}>Name</th>
-                      <th style={styles.th}>Department</th>
-                      <th style={styles.th}>Position</th>
-                      <th style={styles.th}>QR Code</th>
+                      <th style={styles.th} onClick={() => handleSort("employee_no")}>No{getSortIcon("employee_no")}</th>
+                      <th style={styles.th} onClick={() => handleSort("full_name")}>Name{getSortIcon("full_name")}</th>
+                      <th style={styles.th} onClick={() => handleSort("department")}>Department{getSortIcon("department")}</th>
+                      <th style={styles.th} onClick={() => handleSort("position")}>Position{getSortIcon("position")}</th>
+                      <th style={styles.th}>Status</th>
+                      <th style={styles.th}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {employees.map((emp) => (
-                      <tr key={emp.id} style={styles.tr}>
+                    {filteredAndSortedEmployees.map((emp) => (
+                      <tr key={emp.id} style={{...styles.tr, opacity: emp.active ? 1 : 0.5}}>
                         <td style={styles.td}>{emp.employee_no}</td>
                         <td style={{...styles.td, fontWeight: "600"}}>{emp.full_name}</td>
                         <td style={styles.td}>{emp.department || "-"}</td>
                         <td style={styles.td}>{emp.position || "-"}</td>
                         <td style={styles.td}>
-                          <button onClick={() => handleGenerateQR(emp.id)} style={styles.smallButton}>Generate QR</button>
+                          <span style={emp.active ? styles.badgeInside : styles.badgeOutside}>
+                            {emp.active ? "Active" : "Inactive"}
+                          </span>
+                        </td>
+                        <td style={styles.td}>
+                          <div style={{display: "flex", gap: 6, flexWrap: "wrap"}}>
+                            <button onClick={() => openEditModal(emp)} style={styles.editButton}>✏️ Edit</button>
+                            <button onClick={() => handleGenerateQR(emp.id)} style={styles.smallButton}>📱 QR</button>
+                            {emp.active && (
+                              <button onClick={() => handleDeleteEmployee(emp)} style={styles.deleteButton}>🗑️</button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -366,11 +556,34 @@ export default function AdminPage() {
         )}
       </main>
 
-      {/* QR Code Modal */}
+      {/* EDIT EMPLOYEE MODAL */}
+      {editModal && (
+        <div style={styles.modalOverlay} onClick={() => setEditModal(null)}>
+          <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ margin: "0 0 20px 0", fontSize: 18 }}>✏️ Edit Employee</h3>
+            <form onSubmit={handleUpdateEmployee} style={{display: "flex", flexDirection: "column", gap: 12}}>
+              <input type="text" placeholder="Employee No" value={editFormData.employee_no} onChange={(e) => setEditFormData({...editFormData, employee_no: e.target.value})} style={styles.input} required />
+              <input type="text" placeholder="Full Name" value={editFormData.full_name} onChange={(e) => setEditFormData({...editFormData, full_name: e.target.value})} style={styles.input} required />
+              <input type="text" placeholder="Department" value={editFormData.department} onChange={(e) => setEditFormData({...editFormData, department: e.target.value})} style={styles.input} />
+              <input type="text" placeholder="Position" value={editFormData.position} onChange={(e) => setEditFormData({...editFormData, position: e.target.value})} style={styles.input} />
+              <div style={{display: "flex", alignItems: "center", gap: 8}}>
+                <input type="checkbox" checked={editFormData.active} onChange={(e) => setEditFormData({...editFormData, active: e.target.checked})} style={{width: 18, height: 18}} />
+                <span>Active</span>
+              </div>
+              <div style={{display: "flex", gap: 12, marginTop: 10}}>
+                <button type="submit" style={styles.primaryButton}>Save Changes</button>
+                <button type="button" onClick={() => setEditModal(null)} style={styles.cancelButton}>Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* QR CODE MODAL */}
       {qrModal && (
         <div style={styles.modalOverlay} onClick={() => setQrModal(null)}>
           <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
-            <h3 style={{ margin: "0 0 20px 0", textAlign: "center", fontSize: "18px" }}>Scan this QR Code</h3>
+            <h3 style={{ margin: "0 0 20px 0", textAlign: "center", fontSize: 18 }}>Scan this QR Code</h3>
             <div style={{ display: "flex", justifyContent: "center", marginBottom: 20, padding: 20, background: "white", borderRadius: 8 }}>
               <QRCodeSVG value={qrModal.qrContent} size={256} />
             </div>
@@ -389,13 +602,17 @@ const styles = {
   pageContainer: { minHeight: "100vh", background: "#f1f5f9", fontFamily: "'Segoe UI', Arial, sans-serif" },
   loadingContainer: { display: "flex", justifyContent: "center", alignItems: "center", height: "100vh", fontSize: 18, color: "#6b7280" },
   header: { background: "#1e293b", color: "white", padding: "16px 24px" },
-  headerContent: { maxWidth: 1200, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center" },
+  headerContent: { maxWidth: 1200, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 },
   headerTitle: { margin: 0, fontSize: 22, fontWeight: 700 },
   logoutButton: { padding: "8px 16px", background: "#ef4444", color: "white", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: 600 },
+  refreshButton: { padding: "8px 16px", background: "#3b82f6", color: "white", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: 600 },
   nav: { background: "white", borderBottom: "1px solid #e2e8f0", padding: "0 24px", display: "flex", gap: 8, overflowX: "auto" },
   navButton: { padding: "14px 20px", background: "none", border: "none", borderBottom: "3px solid transparent", cursor: "pointer", fontSize: 15, color: "#64748b", fontWeight: 500, whiteSpace: "nowrap" },
   navButtonActive: { padding: "14px 20px", background: "none", border: "none", borderBottom: "3px solid #3b82f6", cursor: "pointer", fontSize: 15, color: "#3b82f6", fontWeight: 600, whiteSpace: "nowrap" },
   mainContent: { maxWidth: 1200, margin: "0 auto", padding: 24 },
+  searchContainer: { marginBottom: 20, display: "flex", gap: 12 },
+  searchInput: { flex: 1, padding: "12px 16px", border: "2px solid #e2e8f0", borderRadius: 8, fontSize: 15, outline: "none" },
+  clearSearchButton: { padding: "12px 16px", background: "#ef4444", color: "white", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600 },
   statsGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, marginBottom: 24 },
   statCard: { background: "white", padding: 20, borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.1)" },
   statLabel: { margin: 0, fontSize: 14, color: "#64748b", marginBottom: 8 },
@@ -404,7 +621,7 @@ const styles = {
   cardTitle: { margin: "0 0 20px 0", fontSize: 18, fontWeight: 700, color: "#1e293b" },
   tableWrapper: { overflowX: "auto" },
   table: { width: "100%", borderCollapse: "collapse" },
-  th: { padding: "12px 16px", textAlign: "left", borderBottom: "2px solid #e2e8f0", fontSize: 13, fontWeight: 600, color: "#64748b", textTransform: "uppercase" },
+  th: { padding: "12px 16px", textAlign: "left", borderBottom: "2px solid #e2e8f0", fontSize: 13, fontWeight: 600, color: "#64748b", textTransform: "uppercase", cursor: "pointer", userSelect: "none" },
   td: { padding: "12px 16px", borderBottom: "1px solid #f1f5f9", fontSize: 14 },
   tr: { transition: "background 0.2s" },
   badgeInside: { padding: "4px 10px", borderRadius: 20, fontSize: 12, fontWeight: 700, background: "#dcfce7", color: "#166534" },
@@ -415,7 +632,10 @@ const styles = {
   formRow: { display: "flex", gap: 16, flexWrap: "wrap" },
   input: { flex: 1, padding: 12, border: "1px solid #d1d5db", borderRadius: 6, fontSize: 14, minWidth: 200 },
   primaryButton: { padding: "12px 24px", background: "#3b82f6", color: "white", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: 700, fontSize: 15 },
-  smallButton: { padding: "6px 14px", background: "#3b82f6", color: "white", border: "none", borderRadius: 4, cursor: "pointer", fontSize: 13, fontWeight: 600 },
+  cancelButton: { padding: "12px 24px", background: "#6b7280", color: "white", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: 700, fontSize: 15 },
+  smallButton: { padding: "6px 12px", background: "#3b82f6", color: "white", border: "none", borderRadius: 4, cursor: "pointer", fontSize: 12, fontWeight: 600 },
+  editButton: { padding: "6px 12px", background: "#f59e0b", color: "white", border: "none", borderRadius: 4, cursor: "pointer", fontSize: 12, fontWeight: 600 },
+  deleteButton: { padding: "6px 12px", background: "#ef4444", color: "white", border: "none", borderRadius: 4, cursor: "pointer", fontSize: 12, fontWeight: 600 },
   modalOverlay: { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.6)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1000 },
-  modalContent: { background: "#f8fafc", padding: 30, borderRadius: 12, maxWidth: 400, width: "90%" },
+  modalContent: { background: "#f8fafc", padding: 30, borderRadius: 12, maxWidth: 450, width: "90%" },
 };
