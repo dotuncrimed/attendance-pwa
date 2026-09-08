@@ -437,84 +437,115 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* DURATIONS TAB */}
+                {/* DURATIONS TAB */}
         {activeTab === "durations" && (
-          <div style={styles.card}>
-            <h2 style={styles.cardTitle}>⏱️ Work Duration - Today</h2>
-            <p style={{color: "#6b7280", fontSize: 14, marginTop: -10, marginBottom: 20}}>
-              Green = Inside warehouse, Red = Outside warehouse.
-            </p>
-            <div style={styles.tableWrapper}>
-              <table style={styles.table}>
-                <thead>
-                  <tr>
-                    <th style={styles.th} onClick={() => handleSort("full_name")}>Employee{getSortIcon("full_name")}</th>
-                    <th style={styles.th}>Current Session</th>
-                    <th style={styles.th}>Today's Inside</th>
-                    <th style={styles.th}>Today's Outside</th>
-                    <th style={styles.th}>Last 3 Sessions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredAndSortedDurations.map((emp) => (
-                    <tr key={emp.id} style={styles.tr}>
-                      <td style={styles.td}>
-                        <div style={{fontWeight: "600"}}>{emp.full_name}</div>
-                        <div style={{fontSize: "12px", color: "#6b7280"}}>{emp.employee_no}</div>
-                      </td>
-                      <td style={styles.td}>
-                        {emp.current_status === "inside" ? (
-                          <div style={styles.currentSessionInside}>
-                            <span style={{fontSize: 18}}>🟢</span>
-                            <div>
-                              <div style={{fontWeight: "700", color: "#16a34a"}}>INSIDE</div>
-                              <div style={{fontSize: 14, color: "#16a34a"}}>⏳ {formatDuration(emp.current_session_minutes)}</div>
-                            </div>
-                          </div>
-                        ) : (
-                          <div style={styles.currentSessionOutside}>
-                            <span style={{fontSize: 18}}>🔴</span>
-                            <div>
-                              <div style={{fontWeight: "700", color: "#dc2626"}}>OUTSIDE</div>
-                              <div style={{fontSize: 14, color: "#dc2626"}}>⏳ {formatDuration(emp.current_session_minutes)}</div>
-                            </div>
-                          </div>
-                        )}
-                      </td>
-                      <td style={styles.td}>
-                        <span style={styles.insideTimeBadge}>🏭 {formatDuration(emp.today_inside_minutes)}</span>
-                      </td>
-                      <td style={styles.td}>
-                        <span style={styles.outsideTimeBadge}>🚪 {formatDuration(emp.today_outside_minutes)}</span>
-                      </td>
-                      <td style={styles.td}>
-                        {emp.last_sessions.length > 0 ? (
-                          <div style={{display: "flex", flexDirection: "column", gap: 6}}>
-                            {emp.last_sessions.map((session, idx) => (
-                              <div key={idx} style={styles.sessionCard}>
-                                <div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
-                                  <span style={{color: "#16a34a", fontWeight: "600", fontSize: 13}}>
-                                    IN {new Date(session.in_time).toLocaleTimeString()}
-                                  </span>
-                                  <span style={{color: "#9ca3af", fontSize: 12}}>→</span>
-                                  <span style={{color: "#dc2626", fontWeight: "600", fontSize: 13}}>
-                                    OUT {new Date(session.out_time).toLocaleTimeString()}
-                                  </span>
-                                </div>
-                                <div style={{textAlign: "center", fontSize: 12, color: "#6b7280", marginTop: 2}}>
-                                  Duration: <strong>{formatDuration(session.duration_minutes)}</strong>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <span style={{color: "#9ca3af", fontSize: 13}}>No completed sessions today</span>
-                        )}
-                      </td>
+          <div>
+            {/* Export Section */}
+            <div style={styles.card}>
+              <h2 style={styles.cardTitle}>📥 Export Duration Summary</h2>
+              <p style={{color: "#6b7280", fontSize: 14, marginTop: -10, marginBottom: 20}}>
+                Download a CSV summary of employee inside/outside time.
+              </p>
+              <div style={{display: "flex", gap: 12, flexWrap: "wrap"}}>
+                <button 
+                  onClick={() => window.open("/api/export-durations?period=today", "_blank")} 
+                  style={styles.exportButton}
+                >
+                  📊 Export Today
+                </button>
+                <button 
+                  onClick={() => window.open("/api/export-durations?period=week", "_blank")} 
+                  style={{...styles.exportButton, background: "#7c3aed"}}
+                >
+                  📊 Export This Week
+                </button>
+                <button 
+                  onClick={() => window.open("/api/export-durations?period=month", "_blank")} 
+                  style={{...styles.exportButton, background: "#0891b2"}}
+                >
+                  📊 Export This Month
+                </button>
+              </div>
+            </div>
+
+            {/* Durations Table */}
+            <div style={styles.card}>
+              <h2 style={styles.cardTitle}>⏱️ Work Duration - Today</h2>
+              <p style={{color: "#6b7280", fontSize: 14, marginTop: -10, marginBottom: 20}}>
+                Green = Inside warehouse, Red = Outside warehouse.
+              </p>
+              <div style={styles.tableWrapper}>
+                <table style={styles.table}>
+                  <thead>
+                    <tr>
+                      <th style={styles.th} onClick={() => handleSort("full_name")}>Employee{getSortIcon("full_name")}</th>
+                      <th style={styles.th}>Current Session</th>
+                      <th style={styles.th}>Today's Inside</th>
+                      <th style={styles.th}>Today's Outside</th>
+                      <th style={styles.th}>Last 3 Sessions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {filteredAndSortedDurations.map((emp) => (
+                      <tr key={emp.id} style={styles.tr}>
+                        <td style={styles.td}>
+                          <div style={{fontWeight: "600"}}>{emp.full_name}</div>
+                          <div style={{fontSize: "12px", color: "#6b7280"}}>{emp.employee_no}</div>
+                        </td>
+                        <td style={styles.td}>
+                          {emp.current_status === "inside" ? (
+                            <div style={styles.currentSessionInside}>
+                              <span style={{fontSize: 18}}>🟢</span>
+                              <div>
+                                <div style={{fontWeight: "700", color: "#16a34a"}}>INSIDE</div>
+                                <div style={{fontSize: 14, color: "#16a34a"}}>⏳ {formatDuration(emp.current_session_minutes)}</div>
+                              </div>
+                            </div>
+                          ) : (
+                            <div style={styles.currentSessionOutside}>
+                              <span style={{fontSize: 18}}>🔴</span>
+                              <div>
+                                <div style={{fontWeight: "700", color: "#dc2626"}}>OUTSIDE</div>
+                                <div style={{fontSize: 14, color: "#dc2626"}}>⏳ {formatDuration(emp.current_session_minutes)}</div>
+                              </div>
+                            </div>
+                          )}
+                        </td>
+                        <td style={styles.td}>
+                          <span style={styles.insideTimeBadge}>🏭 {formatDuration(emp.today_inside_minutes)}</span>
+                        </td>
+                        <td style={styles.td}>
+                          <span style={styles.outsideTimeBadge}>🚪 {formatDuration(emp.today_outside_minutes)}</span>
+                        </td>
+                        <td style={styles.td}>
+                          {emp.last_sessions.length > 0 ? (
+                            <div style={{display: "flex", flexDirection: "column", gap: 6}}>
+                              {emp.last_sessions.map((session, idx) => (
+                                <div key={idx} style={styles.sessionCard}>
+                                  <div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+                                    <span style={{color: "#16a34a", fontWeight: "600", fontSize: 13}}>
+                                      IN {new Date(session.in_time).toLocaleTimeString()}
+                                    </span>
+                                    <span style={{color: "#9ca3af", fontSize: 12}}>→</span>
+                                    <span style={{color: "#dc2626", fontWeight: "600", fontSize: 13}}>
+                                      OUT {new Date(session.out_time).toLocaleTimeString()}
+                                    </span>
+                                  </div>
+                                  <div style={{textAlign: "center", fontSize: 12, color: "#6b7280", marginTop: 2}}>
+                                    Duration: <strong>{formatDuration(session.duration_minutes)}</strong>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <span style={{color: "#9ca3af", fontSize: 13}}>No completed sessions today</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}
