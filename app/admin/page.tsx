@@ -396,15 +396,18 @@ export default function AdminPage() {
         {activeTab === "durations" && (
           <div style={styles.card}>
             <h2 style={styles.cardTitle}>⏱️ Work Duration - Today</h2>
+            <p style={{color: "#6b7280", fontSize: 14, marginTop: -10, marginBottom: 20}}>
+              Shows employee time tracking. Green = Inside warehouse, Red = Outside warehouse.
+            </p>
             <div style={styles.tableWrapper}>
               <table style={styles.table}>
                 <thead>
                   <tr>
                     <th style={styles.th} onClick={() => handleSort("full_name")}>Employee{getSortIcon("full_name")}</th>
-                    <th style={styles.th}>Status</th>
-                    <th style={styles.th}>Current Shift</th>
-                    <th style={styles.th}>Today's Total</th>
-                    <th style={styles.th}>Sessions</th>
+                    <th style={styles.th}>Current Session</th>
+                    <th style={styles.th}>Today's Inside</th>
+                    <th style={styles.th}>Today's Outside</th>
+                    <th style={styles.th}>Last 3 Sessions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -414,39 +417,65 @@ export default function AdminPage() {
                         <div style={{fontWeight: "600"}}>{emp.full_name}</div>
                         <div style={{fontSize: "12px", color: "#6b7280"}}>{emp.employee_no}</div>
                       </td>
-                      <td style={styles.td}>
-                        <span style={emp.current_status === "inside" ? styles.badgeInside : styles.badgeOutside}>
-                          {emp.current_status === "inside" ? "🟢 INSIDE" : "🔴 OUTSIDE"}
-                        </span>
-                      </td>
+                      
+                      {/* Current Session Column */}
                       <td style={styles.td}>
                         {emp.current_status === "inside" ? (
-                          <span style={{fontWeight: "700", color: "#22c55e", fontSize: 16}}>
-                            ⏳ {formatDuration(emp.current_duration_minutes)}
-                          </span>
+                          <div style={styles.currentSessionInside}>
+                            <span style={{fontSize: 18}}>🟢</span>
+                            <div>
+                              <div style={{fontWeight: "700", color: "#16a34a"}}>INSIDE</div>
+                              <div style={{fontSize: 14, color: "#16a34a"}}>⏳ {formatDuration(emp.current_session_minutes)}</div>
+                            </div>
+                          </div>
                         ) : (
-                          <span style={{color: "#9ca3af"}}>—</span>
+                          <div style={styles.currentSessionOutside}>
+                            <span style={{fontSize: 18}}>🔴</span>
+                            <div>
+                              <div style={{fontWeight: "700", color: "#dc2626"}}>OUTSIDE</div>
+                              <div style={{fontSize: 14, color: "#dc2626"}}>⏳ {formatDuration(emp.current_session_minutes)}</div>
+                            </div>
+                          </div>
                         )}
                       </td>
+
+                      {/* Today's Inside Time */}
                       <td style={styles.td}>
-                        <span style={{fontWeight: "700", fontSize: 16, color: "#1e293b"}}>
-                          {formatDuration(emp.today_total_minutes)}
+                        <span style={styles.insideTimeBadge}>
+                          🏭 {formatDuration(emp.today_inside_minutes)}
                         </span>
                       </td>
+
+                      {/* Today's Outside Time */}
                       <td style={styles.td}>
-                        {emp.today_sessions.length > 0 ? (
-                          <div style={{fontSize: 12}}>
-                            {emp.today_sessions.map((session, idx) => (
-                              <div key={idx} style={{marginBottom: 4, padding: "4px 8px", background: "#f8fafc", borderRadius: 4}}>
-                                {new Date(session.in_time).toLocaleTimeString()} → {new Date(session.out_time).toLocaleTimeString()}
-                                <span style={{fontWeight: "600", marginLeft: 8, color: "#3b82f6"}}>
-                                  ({formatDuration(session.duration_minutes)})
-                                </span>
+                        <span style={styles.outsideTimeBadge}>
+                          🚪 {formatDuration(emp.today_outside_minutes)}
+                        </span>
+                      </td>
+
+                      {/* Last 3 Sessions */}
+                      <td style={styles.td}>
+                        {emp.last_sessions.length > 0 ? (
+                          <div style={{display: "flex", flexDirection: "column", gap: 6}}>
+                            {emp.last_sessions.map((session, idx) => (
+                              <div key={idx} style={styles.sessionCard}>
+                                <div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+                                  <span style={{color: "#16a34a", fontWeight: "600", fontSize: 13}}>
+                                    IN {new Date(session.in_time).toLocaleTimeString()}
+                                  </span>
+                                  <span style={{color: "#9ca3af", fontSize: 12}}>→</span>
+                                  <span style={{color: "#dc2626", fontWeight: "600", fontSize: 13}}>
+                                    OUT {new Date(session.out_time).toLocaleTimeString()}
+                                  </span>
+                                </div>
+                                <div style={{textAlign: "center", fontSize: 12, color: "#6b7280", marginTop: 2}}>
+                                  Duration: <strong>{formatDuration(session.duration_minutes)}</strong>
+                                </div>
                               </div>
                             ))}
                           </div>
                         ) : (
-                          <span style={{color: "#9ca3af"}}>No sessions today</span>
+                          <span style={{color: "#9ca3af", fontSize: 13}}>No completed sessions today</span>
                         )}
                       </td>
                     </tr>
@@ -638,4 +667,9 @@ const styles = {
   deleteButton: { padding: "6px 12px", background: "#ef4444", color: "white", border: "none", borderRadius: 4, cursor: "pointer", fontSize: 12, fontWeight: 600 },
   modalOverlay: { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.6)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1000 },
   modalContent: { background: "#f8fafc", padding: 30, borderRadius: 12, maxWidth: 450, width: "90%" },
+    currentSessionInside: { display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "#f0fdf4", borderRadius: 8, border: "1px solid #bbf7d0" },
+  currentSessionOutside: { display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "#fef2f2", borderRadius: 8, border: "1px solid #fecaca" },
+  insideTimeBadge: { display: "inline-block", padding: "6px 12px", background: "#dcfce7", color: "#166534", borderRadius: 6, fontWeight: "700", fontSize: 14 },
+  outsideTimeBadge: { display: "inline-block", padding: "6px 12px", background: "#fee2e2", color: "#991b1b", borderRadius: 6, fontWeight: "700", fontSize: 14 },
+  sessionCard: { padding: "8px 12px", background: "#f8fafc", borderRadius: 6, border: "1px solid #e2e8f0" },
 };

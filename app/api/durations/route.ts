@@ -8,7 +8,6 @@ export async function GET() {
   try {
     const supabase = getSupabaseAdmin();
 
-    // Get all active employees
     const { data: employees, error: empError } = await supabase
       .from("employees")
       .select("*")
@@ -18,10 +17,8 @@ export async function GET() {
       return NextResponse.json({ ok: false, error: empError.message }, { status: 500 });
     }
 
-    // For each employee, calculate their durations
     const employeesWithDurations = await Promise.all(
       employees.map(async (emp) => {
-        // Get all logs for this employee, ordered by time
         const { data: logs } = await supabase
           .from("attendance_logs")
           .select("direction, scanned_at")
@@ -32,61 +29,90 @@ export async function GET() {
           return {
             ...emp,
             current_status: "outside",
-            current_shift_start: null,
-            current_duration_minutes: 0,
-            today_total_minutes: 0,
-            today_sessions: [],
+            current_session_start: null,
+            current_session_minutes: 0,
+            today_inside_minutes: 0,
+            today_outside_minutes: 0,
+            last_sessions: [],
           };
         }
 
-        // Calculate sessions (pairs of IN and OUT)
-        let sessions = [];
+        let insideSessions = [];
+        let outsideSessions = [];
         let currentIn = null;
-        let todayTotal = 0;
+        let currentOut = null;
+        let todayInsideTotal = 0;
+        let todayOutsideTotal = 0;
         const today = new Date().toDateString();
 
         for (const log of logs) {
           const logDate = new Date(log.scanned_at).toDateString();
-          
+          const isToday = logDate === today;
+
           if (log.direction === "in") {
             currentIn = new Date(log.scanned_at);
-          } else if (log.direction === "out" && currentIn) {
-            const outTime = new Date(log.scanned_at);
-            const durationMs = outTime.getTime() - currentIn.getTime();
-            const durationMinutes = Math.round(durationMs / 60000);
-
-            // Only count if it's today
-            if (logDate === today) {
-              todayTotal += durationMinutes;
-              sessions.push({
+            
+            // If there was a previous OUT, calculate outside time
+            if (currentOut && isToday) {
+              const outsideMs = currentIn.getTime() - currentOut.getTime();
+              const outsideMinutes = Math.round(outsideMs / 60000);
+              todayOutsideTotal += outsideMinutes;
+              outsideSessions.push({
+                out_time: currentOut.toISOString(),
                 in_time: currentIn.toISOString(),
-                out_time: outTime.toISOString(),
-                duration_minutes: durationMinutes,
+                duration_minutes: outsideMinutes,
+              });
+            }
+            currentOut = null;
+
+          } else if (log.direction === "out") {
+            currentOut = new Date(log.scanned_at);
+            
+            // If there was a previous IN, calculate inside time
+            if (currentIn && isToday) {
+              const insideMs = currentOut.getTime() - currentIn.getTime();
+              const insideMinutes = Math.round(insideMs / 60000);
+              todayInsideTotal += insideMinutes;
+              insideSessions.push({
+                in_time: currentIn.toISOString(),
+                out_time: currentOut.toISOString(),
+                duration_minutes: insideMinutes,
               });
             }
             currentIn = null;
           }
         }
 
-        // Check if currently inside (has an IN without a matching OUT)
-        let currentDuration = 0;
+        // Determine current session status
         let currentStatus = "outside";
-        let currentShiftStart = null;
+        let currentSessionStart = null;
+        let currentSessionMinutes = 0;
 
-        if (currentIn) {
+        if (currentIn && !currentOut) {
+          // Currently INSIDE
           currentStatus = "inside";
-          currentShiftStart = currentIn.toISOString();
+          currentSessionStart = currentIn.toISOString();
           const now = new Date();
-          currentDuration = Math.round((now.getTime() - currentIn.getTime()) / 60000);
+          currentSessionMinutes = Math.round((now.getTime() - currentIn.getTime()) / 60000);
+        } else if (currentOut) {
+          // Currently OUTSIDE
+          currentStatus = "outside";
+          currentSessionStart = currentOut.toISOString();
+          const now = new Date();
+          currentSessionMinutes = Math.round((now.getTime() - currentOut.getTime()) / 60000);
         }
+
+        // Get last 3 inside sessions (IN→OUT pairs)
+        const lastThreeSessions = insideSessions.slice(-3).reverse();
 
         return {
           ...emp,
           current_status: currentStatus,
-          current_shift_start: currentShiftStart,
-          current_duration_minutes: currentDuration,
-          today_total_minutes: todayTotal,
-          today_sessions: sessions,
+          current_session_start: currentSessionStart,
+          current_session_minutes: currentSessionMinutes,
+          today_inside_minutes: todayInsideTotal,
+          today_outside_minutes: todayOutsideTotal,
+          last_sessions: lastThreeSessions,
         };
       })
     );
