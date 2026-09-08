@@ -40,6 +40,8 @@ export default function AdminPage() {
 
   // Archive state
   const [archiveMonths, setArchiveMonths] = useState(6);
+  const [users, setUsers] = useState([]);
+  const [userFormData, setUserFormData] = useState({ email: "", password: "", full_name: "", role: "guard" });
 
   // Auto-refresh state
   const [lastRefresh, setLastRefresh] = useState(new Date());
@@ -112,6 +114,11 @@ export default function AdminPage() {
     const logRes = await fetch("/api/logs");
     const logData = await logRes.json();
     if (logData.ok) setLogs(logData.logs);
+
+    // Load users
+    const userRes = await fetch("/api/users");
+    const userData = await userRes.json();
+    if (userData.ok) setUsers(userData.users);
 
     // Load summaries with date filter
     let summaryUrl = "/api/summary";
@@ -242,6 +249,49 @@ export default function AdminPage() {
     }
   }
 
+// USER MANAGEMENT
+  async function handleAddUser(e) {
+    e.preventDefault();
+    if (!userFormData.email || !userFormData.password) { 
+      alert("Email and Password are required (min 6 characters)"); 
+      return; 
+    }
+    const res = await fetch("/api/users", { 
+      method: "POST", 
+      headers: { "Content-Type": "application/json" }, 
+      body: JSON.stringify(userFormData) 
+    });
+    const data = await res.json();
+    if (data.ok) { 
+      alert("User added successfully!"); 
+      setUserFormData({ email: "", password: "", full_name: "", role: "guard" }); 
+      loadData(); 
+    } else { 
+      alert("Error: " + data.error); 
+    }
+  }
+
+  async function handleDeleteUser(u) {
+    if (u.id === user.id) { 
+      alert("You cannot delete your own account while logged in!"); 
+      return; 
+    }
+    if (!confirm(`Are you sure you want to permanently delete ${u.email}?`)) return;
+    
+    const res = await fetch("/api/users", { 
+      method: "DELETE", 
+      headers: { "Content-Type": "application/json" }, 
+      body: JSON.stringify({ id: u.id }) 
+    });
+    const data = await res.json();
+    if (data.ok) { 
+      alert("User deleted!"); 
+      loadData(); 
+    } else { 
+      alert("Error: " + data.error); 
+    }
+  }
+
   // CRUD Operations
   async function handleAddEmployee(e) {
     e.preventDefault();
@@ -360,6 +410,7 @@ export default function AdminPage() {
         <button style={activeTab === "reports" ? styles.navButtonActive : styles.navButton} onClick={() => setActiveTab("reports")}>📈 Reports</button>
         <button style={activeTab === "employees" ? styles.navButtonActive : styles.navButton} onClick={() => setActiveTab("employees")}>👥 Employees</button>
         <button style={activeTab === "logs" ? styles.navButtonActive : styles.navButton} onClick={() => setActiveTab("logs")}>📜 Logs</button>
+        <button style={activeTab === "users" ? styles.navButtonActive : styles.navButton} onClick={() => setActiveTab("users")}>👤 Users</button>
         <button style={activeTab === "settings" ? styles.navButtonActive : styles.navButton} onClick={() => setActiveTab("settings")}>⚙️ Settings</button>
       </nav>
 
@@ -721,6 +772,65 @@ export default function AdminPage() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          </div>
+        )}
+
+{/* USERS TAB */}
+        {activeTab === "users" && (
+          <div>
+            <div style={styles.card}>
+              <h2 style={styles.cardTitle}>➕ Add New User (Admin or Guard)</h2>
+              <form onSubmit={handleAddUser} style={styles.form}>
+                <div style={styles.formRow}>
+                  <input type="email" placeholder="Email Address" value={userFormData.email} onChange={(e) => setUserFormData({ ...userFormData, email: e.target.value })} style={styles.input} required />
+                  <input type="password" placeholder="Password (min 6 chars)" value={userFormData.password} onChange={(e) => setUserFormData({ ...userFormData, password: e.target.value })} style={styles.input} required />
+                </div>
+                <div style={styles.formRow}>
+                  <input type="text" placeholder="Full Name (Optional)" value={userFormData.full_name} onChange={(e) => setUserFormData({ ...userFormData, full_name: e.target.value })} style={styles.input} />
+                  <select value={userFormData.role} onChange={(e) => setUserFormData({ ...userFormData, role: e.target.value })} style={styles.input}>
+                    <option value="guard">Role: Guard</option>
+                    <option value="admin">Role: Admin</option>
+                  </select>
+                </div>
+                <button type="submit" style={styles.primaryButton}>Create User Account</button>
+              </form>
+            </div>
+
+            <div style={styles.card}>
+              <h2 style={styles.cardTitle}>👤 All System Users ({users.length})</h2>
+              <div style={styles.tableWrapper}>
+                <table style={styles.table}>
+                  <thead>
+                    <tr>
+                      <th style={styles.th}>Email</th>
+                      <th style={styles.th}>Name</th>
+                      <th style={styles.th}>Role</th>
+                      <th style={styles.th}>Created</th>
+                      <th style={styles.th}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {users.map((u) => (
+                      <tr key={u.id} style={styles.tr}>
+                        <td style={{...styles.td, fontWeight: "600"}}>{u.email} {u.id === user.id && <span style={{color: "#3b82f6", fontSize: 12}}>(You)</span>}</td>
+                        <td style={styles.td}>{u.full_name || "-"}</td>
+                        <td style={styles.td}>
+                          <span style={u.role === "admin" ? styles.badgeInside : styles.badgeOutside}>
+                            {u.role === "admin" ? "👑 Admin" : "🛡️ Guard"}
+                          </span>
+                        </td>
+                        <td style={styles.td}>{new Date(u.created_at).toLocaleDateString()}</td>
+                        <td style={styles.td}>
+                          <button onClick={() => handleDeleteUser(u)} style={styles.deleteButton} disabled={u.id === user.id}>
+                            {u.id === user.id ? "Current User" : "🗑️ Delete"}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}
