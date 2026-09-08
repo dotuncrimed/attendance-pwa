@@ -1,3 +1,4 @@
+// @ts-nocheck
 "use client";
 
 import { useEffect, useState } from "react";
@@ -6,16 +7,17 @@ import { useRouter } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
 
 export default function AdminPage() {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  const [employees, setEmployees] = useState([]);
-  const [logs, setLogs] = useState([]);
-  const [qrModal, setQrModal] = useState(null);
+  const [employees, setEmployees] = useState<any[]>([]);
+  const [employeeStatus, setEmployeeStatus] = useState<any[]>([]);
+  const [logs, setLogs] = useState<any[]>([]);
+  const [qrModal, setQrModal] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState<"dashboard" | "employees" | "logs">("dashboard");
 
-  // Form state
   const [formData, setFormData] = useState({
     employee_no: "",
     full_name: "",
@@ -32,7 +34,6 @@ export default function AdminPage() {
       }
       setUser(session.user);
 
-      // Check if user is admin
       const { data: profile } = await supabase
         .from("profiles")
         .select("role")
@@ -43,7 +44,7 @@ export default function AdminPage() {
         setIsAdmin(true);
         loadData();
       } else {
-        router.push("/guard"); // Not admin, send to guard page
+        router.push("/guard");
       }
       setLoading(false);
     }
@@ -56,13 +57,18 @@ export default function AdminPage() {
     const empData = await empRes.json();
     if (empData.ok) setEmployees(empData.employees);
 
+    // Load employee status (who's inside/outside)
+    const statusRes = await fetch("/api/status");
+    const statusData = await statusRes.json();
+    if (statusData.ok) setEmployeeStatus(statusData.employees);
+
     // Load logs
     const logRes = await fetch("/api/logs");
     const logData = await logRes.json();
     if (logData.ok) setLogs(logData.logs);
   }
 
-  async function handleAddEmployee(e) {
+  async function handleAddEmployee(e: any) {
     e.preventDefault();
     const res = await fetch("/api/employees", {
       method: "POST",
@@ -79,7 +85,7 @@ export default function AdminPage() {
     }
   }
 
-  async function handleGenerateQR(employeeId) {
+  async function handleGenerateQR(employeeId: string) {
     const res = await fetch("/api/generate-qr", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -98,140 +104,245 @@ export default function AdminPage() {
     router.push("/login");
   }
 
-  if (loading) return <div style={{ padding: 24, textAlign: "center" }}>Loading...</div>;
+  if (loading) return <div style={styles.loadingContainer}>Loading...</div>;
   if (!isAdmin) return null;
 
+  const insideCount = employeeStatus.filter(e => e.current_status === "inside").length;
+  const outsideCount = employeeStatus.filter(e => e.current_status === "outside").length;
+  const todayLogs = logs.filter(log => {
+    const logDate = new Date(log.scanned_at).toDateString();
+    const today = new Date().toDateString();
+    return logDate === today;
+  });
+
   return (
-    <div style={{ padding: 24, fontFamily: "Arial", maxWidth: 1000, margin: "0 auto" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 30 }}>
-        <h1 style={{ margin: 0 }}>Admin Dashboard</h1>
-        <button onClick={handleLogout} style={{ padding: "8px 16px", background: "#6b7280", color: "white", border: "none", borderRadius: 5, cursor: "pointer" }}>
-          Logout
+    <div style={styles.pageContainer}>
+      {/* Header */}
+      <header style={styles.header}>
+        <div style={styles.headerContent}>
+          <h1 style={styles.headerTitle}>📋 Attendance Admin</h1>
+          <button onClick={handleLogout} style={styles.logoutButton}>Logout</button>
+        </div>
+      </header>
+
+      {/* Navigation Tabs */}
+      <nav style={styles.nav}>
+        <button
+          style={activeTab === "dashboard" ? styles.navButtonActive : styles.navButton}
+          onClick={() => setActiveTab("dashboard")}
+        >
+          📊 Dashboard
         </button>
-      </div>
+        <button
+          style={activeTab === "employees" ? styles.navButtonActive : styles.navButton}
+          onClick={() => setActiveTab("employees")}
+        >
+          👥 Employees
+        </button>
+        <button
+          style={activeTab === "logs" ? styles.navButtonActive : styles.navButton}
+          onClick={() => setActiveTab("logs")}
+        >
+          📜 Logs
+        </button>
+      </nav>
 
-      {/* Add Employee Form */}
-      <div style={{ background: "#f9fafb", padding: 20, borderRadius: 8, marginBottom: 30 }}>
-        <h2 style={{ marginTop: 0 }}>Add New Employee</h2>
-        <form onSubmit={handleAddEmployee} style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-          <input
-            type="text"
-            placeholder="Employee No (e.g. EMP-002)"
-            value={formData.employee_no}
-            onChange={(e) => setFormData({ ...formData, employee_no: e.target.value })}
-            style={styles.input}
-            required
-          />
-          <input
-            type="text"
-            placeholder="Full Name"
-            value={formData.full_name}
-            onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-            style={styles.input}
-            required
-          />
-          <input
-            type="text"
-            placeholder="Department"
-            value={formData.department}
-            onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-            style={styles.input}
-          />
-          <input
-            type="text"
-            placeholder="Position"
-            value={formData.position}
-            onChange={(e) => setFormData({ ...formData, position: e.target.value })}
-            style={styles.input}
-          />
-          <button type="submit" style={styles.button}>Add Employee</button>
-        </form>
-      </div>
+      <main style={styles.mainContent}>
+        {/* DASHBOARD TAB */}
+        {activeTab === "dashboard" && (
+          <div>
+            {/* Summary Cards */}
+            <div style={styles.statsGrid}>
+              <div style={{...styles.statCard, borderLeft: "4px solid #3b82f6"}}>
+                <p style={styles.statLabel}>Total Employees</p>
+                <p style={styles.statValue}>{employees.length}</p>
+              </div>
+              <div style={{...styles.statCard, borderLeft: "4px solid #22c55e"}}>
+                <p style={styles.statLabel}>Currently Inside</p>
+                <p style={{...styles.statValue, color: "#22c55e"}}>{insideCount}</p>
+              </div>
+              <div style={{...styles.statCard, borderLeft: "4px solid #ef4444"}}>
+                <p style={styles.statLabel}>Currently Outside</p>
+                <p style={{...styles.statValue, color: "#ef4444"}}>{outsideCount}</p>
+              </div>
+              <div style={{...styles.statCard, borderLeft: "4px solid #8b5cf6"}}>
+                <p style={styles.statLabel}>Today's Scans</p>
+                <p style={styles.statValue}>{todayLogs.length}</p>
+              </div>
+            </div>
 
-      {/* Employee List */}
-      <div style={{ marginBottom: 30 }}>
-        <h2>Employees</h2>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr style={{ background: "#f3f4f6", textAlign: "left" }}>
-              <th style={styles.th}>No</th>
-              <th style={styles.th}>Name</th>
-              <th style={styles.th}>Department</th>
-              <th style={styles.th}>Position</th>
-              <th style={styles.th}>QR Code</th>
-            </tr>
-          </thead>
-          <tbody>
-            {employees.map((emp) => (
-              <tr key={emp.id} style={{ borderBottom: "1px solid #e5e7eb" }}>
-                <td style={styles.td}>{emp.employee_no}</td>
-                <td style={styles.td}>{emp.full_name}</td>
-                <td style={styles.td}>{emp.department}</td>
-                <td style={styles.td}>{emp.position}</td>
-                <td style={styles.td}>
-                  <button
-                    onClick={() => handleGenerateQR(emp.id)}
-                    style={{ padding: "6px 12px", background: "#2563eb", color: "white", border: "none", borderRadius: 4, cursor: "pointer" }}
-                  >
-                    Generate QR
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            {/* Employee Status Table */}
+            <div style={styles.card}>
+              <h2 style={styles.cardTitle}>🏭 Employee Status - Who's Inside?</h2>
+              <div style={styles.tableWrapper}>
+                <table style={styles.table}>
+                  <thead>
+                    <tr>
+                      <th style={styles.th}>Employee</th>
+                      <th style={styles.th}>Department</th>
+                      <th style={styles.th}>Status</th>
+                      <th style={styles.th}>Last Scan</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {employeeStatus.map((emp) => (
+                      <tr key={emp.id} style={styles.tr}>
+                        <td style={styles.td}>
+                          <div style={{fontWeight: "600"}}>{emp.full_name}</div>
+                          <div style={{fontSize: "12px", color: "#6b7280"}}>{emp.employee_no}</div>
+                        </td>
+                        <td style={styles.td}>{emp.department || "-"}</td>
+                        <td style={styles.td}>
+                          <span style={emp.current_status === "inside" ? styles.badgeInside : styles.badgeOutside}>
+                            {emp.current_status === "inside" ? "🟢 INSIDE" : "🔴 OUTSIDE"}
+                          </span>
+                        </td>
+                        <td style={styles.td}>
+                          {emp.last_scan_time 
+                            ? new Date(emp.last_scan_time).toLocaleTimeString() 
+                            : "Never scanned"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
 
-      {/* Recent Logs */}
-      <div>
-        <h2>Recent Attendance Logs</h2>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr style={{ background: "#f3f4f6", textAlign: "left" }}>
-              <th style={styles.th}>Time</th>
-              <th style={styles.th}>Employee</th>
-              <th style={styles.th}>Direction</th>
-              <th style={styles.th}>Entrance</th>
-            </tr>
-          </thead>
-          <tbody>
-            {logs.map((log) => (
-              <tr key={log.id} style={{ borderBottom: "1px solid #e5e7eb" }}>
-                <td style={styles.td}>{new Date(log.scanned_at).toLocaleString()}</td>
-                <td style={styles.td}>{log.employees?.full_name} ({log.employees?.employee_no})</td>
-                <td style={styles.td}>
-                  <span style={{ 
-                    padding: "4px 8px", 
-                    borderRadius: 4, 
-                    background: log.direction === "in" ? "#dcfce7" : "#fee2e2",
-                    color: log.direction === "in" ? "#166534" : "#991b1b",
-                    fontWeight: "bold"
-                  }}>
-                    {log.direction === "in" ? "IN" : "OUT"}
-                  </span>
-                </td>
-                <td style={styles.td}>{log.entrance}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+        {/* EMPLOYEES TAB */}
+        {activeTab === "employees" && (
+          <div>
+            {/* Add Employee Form */}
+            <div style={styles.card}>
+              <h2 style={styles.cardTitle}>➕ Add New Employee</h2>
+              <form onSubmit={handleAddEmployee} style={styles.form}>
+                <div style={styles.formRow}>
+                  <input
+                    type="text"
+                    placeholder="Employee No (e.g. EMP-002)"
+                    value={formData.employee_no}
+                    onChange={(e) => setFormData({ ...formData, employee_no: e.target.value })}
+                    style={styles.input}
+                    required
+                  />
+                  <input
+                    type="text"
+                    placeholder="Full Name"
+                    value={formData.full_name}
+                    onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                    style={styles.input}
+                    required
+                  />
+                </div>
+                <div style={styles.formRow}>
+                  <input
+                    type="text"
+                    placeholder="Department"
+                    value={formData.department}
+                    onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                    style={styles.input}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Position"
+                    value={formData.position}
+                    onChange={(e) => setFormData({ ...formData, position: e.target.value })}
+                    style={styles.input}
+                  />
+                </div>
+                <button type="submit" style={styles.primaryButton}>Add Employee</button>
+              </form>
+            </div>
+
+            {/* Employee List */}
+            <div style={styles.card}>
+              <h2 style={styles.cardTitle}>👥 All Employees</h2>
+              <div style={styles.tableWrapper}>
+                <table style={styles.table}>
+                  <thead>
+                    <tr>
+                      <th style={styles.th}>No</th>
+                      <th style={styles.th}>Name</th>
+                      <th style={styles.th}>Department</th>
+                      <th style={styles.th}>Position</th>
+                      <th style={styles.th}>QR Code</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {employees.map((emp) => (
+                      <tr key={emp.id} style={styles.tr}>
+                        <td style={styles.td}>{emp.employee_no}</td>
+                        <td style={{...styles.td, fontWeight: "600"}}>{emp.full_name}</td>
+                        <td style={styles.td}>{emp.department || "-"}</td>
+                        <td style={styles.td}>{emp.position || "-"}</td>
+                        <td style={styles.td}>
+                          <button
+                            onClick={() => handleGenerateQR(emp.id)}
+                            style={styles.smallButton}
+                          >
+                            Generate QR
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* LOGS TAB */}
+        {activeTab === "logs" && (
+          <div style={styles.card}>
+            <h2 style={styles.cardTitle}>📜 Recent Attendance Logs</h2>
+            <div style={styles.tableWrapper}>
+              <table style={styles.table}>
+                <thead>
+                  <tr>
+                    <th style={styles.th}>Time</th>
+                    <th style={styles.th}>Employee</th>
+                    <th style={styles.th}>Direction</th>
+                    <th style={styles.th}>Entrance</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {logs.map((log) => (
+                    <tr key={log.id} style={styles.tr}>
+                      <td style={styles.td}>{new Date(log.scanned_at).toLocaleString()}</td>
+                      <td style={styles.td}>
+                        <div style={{fontWeight: "600"}}>{log.employees?.full_name}</div>
+                        <div style={{fontSize: "12px", color: "#6b7280"}}>{log.employees?.employee_no}</div>
+                      </td>
+                      <td style={styles.td}>
+                        <span style={log.direction === "in" ? styles.badgeIn : styles.badgeOut}>
+                          {log.direction === "in" ? "IN" : "OUT"}
+                        </span>
+                      </td>
+                      <td style={styles.td}>{log.entrance}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </main>
 
       {/* QR Code Modal */}
       {qrModal && (
         <div style={styles.modalOverlay} onClick={() => setQrModal(null)}>
           <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
-            <h3 style={{ marginTop: 0, textAlign: "center" }}>Scan this QR Code</h3>
-            <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
+            <h3 style={{ margin: "0 0 20px 0", textAlign: "center", fontSize: "18px" }}>Scan this QR Code</h3>
+            <div style={{ display: "flex", justifyContent: "center", marginBottom: 20, padding: 20, background: "white", borderRadius: 8 }}>
               <QRCodeSVG value={qrModal.qrContent} size={256} />
             </div>
-            <p style={{ textAlign: "center", fontSize: 12, color: "#6b7280", wordBreak: "break-all" }}>
+            <p style={{ textAlign: "center", fontSize: 12, color: "#6b7280", wordBreak: "break-all", marginBottom: 20 }}>
               {qrModal.qrContent}
             </p>
-            <button
-              onClick={() => setQrModal(null)}
-              style={{ width: "100%", padding: 10, background: "#2563eb", color: "white", border: "none", borderRadius: 5, cursor: "pointer" }}
-            >
+            <button onClick={() => setQrModal(null)} style={styles.primaryButton}>
               Close
             </button>
           </div>
@@ -241,11 +352,37 @@ export default function AdminPage() {
   );
 }
 
-const styles = {
-  input: { padding: 10, border: "1px solid #d1d5db", borderRadius: 4, flex: "1 1 200px" },
-  button: { padding: "10px 20px", background: "#2563eb", color: "white", border: "none", borderRadius: 4, cursor: "pointer", fontWeight: "bold" },
-  th: { padding: 12, borderBottom: "2px solid #e5e7eb" },
-  td: { padding: 12 },
-  modalOverlay: { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.5)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1000 },
-  modalContent: { background: "white", padding: 30, borderRadius: 10, maxWidth: 400, width: "90%" }
+const styles: any = {
+  pageContainer: { minHeight: "100vh", background: "#f1f5f9", fontFamily: "'Segoe UI', Arial, sans-serif" },
+  loadingContainer: { display: "flex", justifyContent: "center", alignItems: "center", height: "100vh", fontSize: 18, color: "#6b7280" },
+  header: { background: "#1e293b", color: "white", padding: "16px 24px" },
+  headerContent: { maxWidth: 1200, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center" },
+  headerTitle: { margin: 0, fontSize: 22, fontWeight: 700 },
+  logoutButton: { padding: "8px 16px", background: "#ef4444", color: "white", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: 600 },
+  nav: { background: "white", borderBottom: "1px solid #e2e8f0", padding: "0 24px", display: "flex", gap: 8 },
+  navButton: { padding: "14px 20px", background: "none", border: "none", borderBottom: "3px solid transparent", cursor: "pointer", fontSize: 15, color: "#64748b", fontWeight: 500 },
+  navButtonActive: { padding: "14px 20px", background: "none", border: "none", borderBottom: "3px solid #3b82f6", cursor: "pointer", fontSize: 15, color: "#3b82f6", fontWeight: 600 },
+  mainContent: { maxWidth: 1200, margin: "0 auto", padding: 24 },
+  statsGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, marginBottom: 24 },
+  statCard: { background: "white", padding: 20, borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.1)" },
+  statLabel: { margin: 0, fontSize: 14, color: "#64748b", marginBottom: 8 },
+  statValue: { margin: 0, fontSize: 32, fontWeight: 700, color: "#1e293b" },
+  card: { background: "white", borderRadius: 10, padding: 24, marginBottom: 24, boxShadow: "0 1px 3px rgba(0,0,0,0.1)" },
+  cardTitle: { margin: "0 0 20px 0", fontSize: 18, fontWeight: 700, color: "#1e293b" },
+  tableWrapper: { overflowX: "auto" },
+  table: { width: "100%", borderCollapse: "collapse" },
+  th: { padding: "12px 16px", textAlign: "left", borderBottom: "2px solid #e2e8f0", fontSize: 13, fontWeight: 600, color: "#64748b", textTransform: "uppercase" as const },
+  td: { padding: "12px 16px", borderBottom: "1px solid #f1f5f9", fontSize: 14 },
+  tr: { transition: "background 0.2s" },
+  badgeInside: { padding: "4px 10px", borderRadius: 20, fontSize: 12, fontWeight: 700, background: "#dcfce7", color: "#166534" },
+  badgeOutside: { padding: "4px 10px", borderRadius: 20, fontSize: 12, fontWeight: 700, background: "#fee2e2", color: "#991b1b" },
+  badgeIn: { padding: "4px 10px", borderRadius: 20, fontSize: 12, fontWeight: 700, background: "#dcfce7", color: "#166534" },
+  badgeOut: { padding: "4px 10px", borderRadius: 20, fontSize: 12, fontWeight: 700, background: "#fee2e2", color: "#991b1b" },
+  form: { display: "flex", flexDirection: "column" as const, gap: 16 },
+  formRow: { display: "flex", gap: 16, flexWrap: "wrap" as const },
+  input: { flex: 1, padding: 12, border: "1px solid #d1d5db", borderRadius: 6, fontSize: 14, minWidth: 200 },
+  primaryButton: { padding: "12px 24px", background: "#3b82f6", color: "white", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: 700, fontSize: 15 },
+  smallButton: { padding: "6px 14px", background: "#3b82f6", color: "white", border: "none", borderRadius: 4, cursor: "pointer", fontSize: 13, fontWeight: 600 },
+  modalOverlay: { position: "fixed" as const, top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.6)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1000 },
+  modalContent: { background: "#f8fafc", padding: 30, borderRadius: 12, maxWidth: 400, width: "90%" },
 };
