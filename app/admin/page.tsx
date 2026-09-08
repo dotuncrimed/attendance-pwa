@@ -24,6 +24,7 @@ export default function AdminPage() {
   const [employeeStatus, setEmployeeStatus] = useState([]);
   const [durations, setDurations] = useState([]);
   const [logs, setLogs] = useState([]);
+  const [summaries, setSummaries] = useState([]);
   const [qrModal, setQrModal] = useState(null);
   const [editModal, setEditModal] = useState(null);
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -32,6 +33,13 @@ export default function AdminPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortField, setSortField] = useState("employee_no");
   const [sortDirection, setSortDirection] = useState("asc");
+
+  // Date filter states
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+
+  // Archive state
+  const [archiveMonths, setArchiveMonths] = useState(6);
 
   // Auto-refresh state
   const [lastRefresh, setLastRefresh] = useState(new Date());
@@ -84,7 +92,7 @@ export default function AdminPage() {
     const interval = setInterval(() => {
       loadData();
       setLastRefresh(new Date());
-    }, 30000); // 30 seconds
+    }, 30000);
     return () => clearInterval(interval);
   }, [isAdmin]);
 
@@ -104,6 +112,18 @@ export default function AdminPage() {
     const logRes = await fetch("/api/logs");
     const logData = await logRes.json();
     if (logData.ok) setLogs(logData.logs);
+
+    // Load summaries with date filter
+    let summaryUrl = "/api/summary";
+    if (startDate || endDate) {
+      const params = new URLSearchParams();
+      if (startDate) params.append("startDate", startDate);
+      if (endDate) params.append("endDate", endDate);
+      summaryUrl += "?" + params.toString();
+    }
+    const sumRes = await fetch(summaryUrl);
+    const sumData = await sumRes.json();
+    if (sumData.ok) setSummaries(sumData.summaries);
   }
 
   // SEARCH & SORT logic
@@ -120,12 +140,8 @@ export default function AdminPage() {
       let bVal = b[sortField] || "";
       if (typeof aVal === "string") aVal = aVal.toLowerCase();
       if (typeof bVal === "string") bVal = bVal.toLowerCase();
-
-      if (sortDirection === "asc") {
-        return aVal > bVal ? 1 : -1;
-      } else {
-        return aVal < bVal ? 1 : -1;
-      }
+      if (sortDirection === "asc") return aVal > bVal ? 1 : -1;
+      return aVal < bVal ? 1 : -1;
     });
 
     return filtered;
@@ -143,12 +159,8 @@ export default function AdminPage() {
       let bVal = b[sortField] || "";
       if (typeof aVal === "string") aVal = aVal.toLowerCase();
       if (typeof bVal === "string") bVal = bVal.toLowerCase();
-
-      if (sortDirection === "asc") {
-        return aVal > bVal ? 1 : -1;
-      } else {
-        return aVal < bVal ? 1 : -1;
-      }
+      if (sortDirection === "asc") return aVal > bVal ? 1 : -1;
+      return aVal < bVal ? 1 : -1;
     });
 
     return filtered;
@@ -166,16 +178,25 @@ export default function AdminPage() {
       let bVal = b[sortField] || "";
       if (typeof aVal === "string") aVal = aVal.toLowerCase();
       if (typeof bVal === "string") bVal = bVal.toLowerCase();
-
-      if (sortDirection === "asc") {
-        return aVal > bVal ? 1 : -1;
-      } else {
-        return aVal < bVal ? 1 : -1;
-      }
+      if (sortDirection === "asc") return aVal > bVal ? 1 : -1;
+      return aVal < bVal ? 1 : -1;
     });
 
     return filtered;
   }, [durations, searchTerm, sortField, sortDirection]);
+
+  const filteredLogs = useMemo(() => {
+    let filtered = [...logs];
+    
+    if (startDate) {
+      filtered = filtered.filter(log => new Date(log.scanned_at) >= new Date(`${startDate}T00:00:00`));
+    }
+    if (endDate) {
+      filtered = filtered.filter(log => new Date(log.scanned_at) <= new Date(`${endDate}T23:59:59`));
+    }
+    
+    return filtered;
+  }, [logs, startDate, endDate]);
 
   function handleSort(field) {
     if (sortField === field) {
@@ -189,6 +210,36 @@ export default function AdminPage() {
   function getSortIcon(field) {
     if (sortField !== field) return " ↕";
     return sortDirection === "asc" ? " ↑" : " ↓";
+  }
+
+  // Export CSV
+  async function handleExportCSV() {
+    let url = "/api/export";
+    const params = new URLSearchParams();
+    if (startDate) params.append("startDate", startDate);
+    if (endDate) params.append("endDate", endDate);
+    if (params.toString()) url += "?" + params.toString();
+
+    window.open(url, "_blank");
+  }
+
+  // Archive old logs
+  async function handleArchive() {
+    const confirmed = confirm(`Are you sure you want to delete all logs older than ${archiveMonths} month(s)? This cannot be undone!`);
+    if (!confirmed) return;
+
+    const res = await fetch("/api/archive", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ monthsToKeep: archiveMonths }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      alert(data.message);
+      loadData();
+    } else {
+      alert("Error: " + data.error);
+    }
   }
 
   // CRUD Operations
@@ -304,18 +355,12 @@ export default function AdminPage() {
       </header>
 
       <nav style={styles.nav}>
-        <button style={activeTab === "dashboard" ? styles.navButtonActive : styles.navButton} onClick={() => setActiveTab("dashboard")}>
-          📊 Dashboard
-        </button>
-        <button style={activeTab === "durations" ? styles.navButtonActive : styles.navButton} onClick={() => setActiveTab("durations")}>
-          ⏱️ Durations
-        </button>
-        <button style={activeTab === "employees" ? styles.navButtonActive : styles.navButton} onClick={() => setActiveTab("employees")}>
-          👥 Employees
-        </button>
-        <button style={activeTab === "logs" ? styles.navButtonActive : styles.navButton} onClick={() => setActiveTab("logs")}>
-          📜 Logs
-        </button>
+        <button style={activeTab === "dashboard" ? styles.navButtonActive : styles.navButton} onClick={() => setActiveTab("dashboard")}>📊 Dashboard</button>
+        <button style={activeTab === "durations" ? styles.navButtonActive : styles.navButton} onClick={() => setActiveTab("durations")}>⏱️ Durations</button>
+        <button style={activeTab === "reports" ? styles.navButtonActive : styles.navButton} onClick={() => setActiveTab("reports")}>📈 Reports</button>
+        <button style={activeTab === "employees" ? styles.navButtonActive : styles.navButton} onClick={() => setActiveTab("employees")}>👥 Employees</button>
+        <button style={activeTab === "logs" ? styles.navButtonActive : styles.navButton} onClick={() => setActiveTab("logs")}>📜 Logs</button>
+        <button style={activeTab === "settings" ? styles.navButtonActive : styles.navButton} onClick={() => setActiveTab("settings")}>⚙️ Settings</button>
       </nav>
 
       <main style={styles.mainContent}>
@@ -397,7 +442,7 @@ export default function AdminPage() {
           <div style={styles.card}>
             <h2 style={styles.cardTitle}>⏱️ Work Duration - Today</h2>
             <p style={{color: "#6b7280", fontSize: 14, marginTop: -10, marginBottom: 20}}>
-              Shows employee time tracking. Green = Inside warehouse, Red = Outside warehouse.
+              Green = Inside warehouse, Red = Outside warehouse.
             </p>
             <div style={styles.tableWrapper}>
               <table style={styles.table}>
@@ -417,8 +462,6 @@ export default function AdminPage() {
                         <div style={{fontWeight: "600"}}>{emp.full_name}</div>
                         <div style={{fontSize: "12px", color: "#6b7280"}}>{emp.employee_no}</div>
                       </td>
-                      
-                      {/* Current Session Column */}
                       <td style={styles.td}>
                         {emp.current_status === "inside" ? (
                           <div style={styles.currentSessionInside}>
@@ -438,22 +481,12 @@ export default function AdminPage() {
                           </div>
                         )}
                       </td>
-
-                      {/* Today's Inside Time */}
                       <td style={styles.td}>
-                        <span style={styles.insideTimeBadge}>
-                          🏭 {formatDuration(emp.today_inside_minutes)}
-                        </span>
+                        <span style={styles.insideTimeBadge}>🏭 {formatDuration(emp.today_inside_minutes)}</span>
                       </td>
-
-                      {/* Today's Outside Time */}
                       <td style={styles.td}>
-                        <span style={styles.outsideTimeBadge}>
-                          🚪 {formatDuration(emp.today_outside_minutes)}
-                        </span>
+                        <span style={styles.outsideTimeBadge}>🚪 {formatDuration(emp.today_outside_minutes)}</span>
                       </td>
-
-                      {/* Last 3 Sessions */}
                       <td style={styles.td}>
                         {emp.last_sessions.length > 0 ? (
                           <div style={{display: "flex", flexDirection: "column", gap: 6}}>
@@ -482,6 +515,71 @@ export default function AdminPage() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          </div>
+        )}
+
+        {/* REPORTS TAB */}
+        {activeTab === "reports" && (
+          <div>
+            {/* Date Filter */}
+            <div style={styles.card}>
+              <h2 style={styles.cardTitle}>📅 Date Range Filter</h2>
+              <div style={{display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center"}}>
+                <div>
+                  <label style={{fontSize: 13, color: "#6b7280", display: "block", marginBottom: 4}}>Start Date</label>
+                  <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} style={styles.input} />
+                </div>
+                <div>
+                  <label style={{fontSize: 13, color: "#6b7280", display: "block", marginBottom: 4}}>End Date</label>
+                  <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} style={styles.input} />
+                </div>
+                <button onClick={() => { setStartDate(""); setEndDate(""); }} style={styles.cancelButton}>Reset</button>
+                <button onClick={loadData} style={styles.primaryButton}>Apply Filter</button>
+                <button onClick={handleExportCSV} style={styles.exportButton}>📥 Export CSV</button>
+              </div>
+            </div>
+
+            {/* Summary Table */}
+            <div style={styles.card}>
+              <h2 style={styles.cardTitle}>📈 Employee Summary Report</h2>
+              <div style={styles.tableWrapper}>
+                <table style={styles.table}>
+                  <thead>
+                    <tr>
+                      <th style={styles.th} onClick={() => handleSort("employee_no")}>Employee{getSortIcon("employee_no")}</th>
+                      <th style={styles.th}>Days Present</th>
+                      <th style={styles.th}>Total Scans</th>
+                      <th style={styles.th}>IN Scans</th>
+                      <th style={styles.th}>OUT Scans</th>
+                      <th style={styles.th}>Total Inside Time</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {summaries.map((emp) => (
+                      <tr key={emp.id} style={styles.tr}>
+                        <td style={styles.td}>
+                          <div style={{fontWeight: "600"}}>{emp.full_name}</div>
+                          <div style={{fontSize: "12px", color: "#6b7280"}}>{emp.employee_no} • {emp.department || "No dept"}</div>
+                        </td>
+                        <td style={styles.td}>
+                          <span style={styles.daysPresentBadge}>{emp.days_present} days</span>
+                        </td>
+                        <td style={styles.td}>{emp.total_scans}</td>
+                        <td style={styles.td}>
+                          <span style={{color: "#16a34a", fontWeight: "600"}}>{emp.total_in_scans}</span>
+                        </td>
+                        <td style={styles.td}>
+                          <span style={{color: "#dc2626", fontWeight: "600"}}>{emp.total_out_scans}</span>
+                        </td>
+                        <td style={styles.td}>
+                          <span style={styles.insideTimeBadge}>🏭 {emp.total_inside_formatted}</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}
@@ -551,7 +649,19 @@ export default function AdminPage() {
         {/* LOGS TAB */}
         {activeTab === "logs" && (
           <div style={styles.card}>
-            <h2 style={styles.cardTitle}>📜 Recent Attendance Logs</h2>
+            <div style={{display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12}}>
+              <h2 style={{margin: 0, fontSize: 18, fontWeight: 700, color: "#1e293b"}}>📜 Attendance Logs ({filteredLogs.length})</h2>
+              <button onClick={handleExportCSV} style={styles.exportButton}>📥 Export CSV</button>
+            </div>
+            
+            {/* Date Filter for Logs */}
+            <div style={{display: "flex", gap: 16, marginBottom: 20, flexWrap: "wrap", alignItems: "center"}}>
+              <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} style={{...styles.input, width: "auto"}} />
+              <span style={{color: "#6b7280"}}>to</span>
+              <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} style={{...styles.input, width: "auto"}} />
+              <button onClick={() => { setStartDate(""); setEndDate(""); }} style={styles.cancelButton}>Reset</button>
+            </div>
+
             <div style={styles.tableWrapper}>
               <table style={styles.table}>
                 <thead>
@@ -563,7 +673,7 @@ export default function AdminPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {logs.map((log) => (
+                  {filteredLogs.map((log) => (
                     <tr key={log.id} style={styles.tr}>
                       <td style={styles.td}>{new Date(log.scanned_at).toLocaleString()}</td>
                       <td style={styles.td}>
@@ -580,6 +690,43 @@ export default function AdminPage() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          </div>
+        )}
+
+        {/* SETTINGS TAB */}
+        {activeTab === "settings" && (
+          <div style={styles.card}>
+            <h2 style={styles.cardTitle}>⚙️ Settings & Maintenance</h2>
+            
+            {/* Archive Section */}
+            <div style={{padding: 20, background: "#fef3c7", borderRadius: 8, border: "1px solid #fbbf24", marginBottom: 20}}>
+              <h3 style={{margin: "0 0 10px 0", color: "#92400e"}}>🗑️ Archive Old Logs</h3>
+              <p style={{margin: "0 0 15px 0", fontSize: 14, color: "#92400e"}}>
+                Delete attendance logs older than a specified number of months to save database space.
+              </p>
+              <div style={{display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap"}}>
+                <label style={{fontSize: 14, color: "#92400e"}}>Keep logs for the last</label>
+                <select value={archiveMonths} onChange={(e) => setArchiveMonths(Number(e.target.value))} style={{...styles.input, width: "auto"}}>
+                  <option value={1}>1 month</option>
+                  <option value={3}>3 months</option>
+                  <option value={6}>6 months</option>
+                  <option value={12}>12 months</option>
+                  <option value={24}>24 months</option>
+                </select>
+                <button onClick={handleArchive} style={styles.archiveButton}>🗑️ Delete Old Logs</button>
+              </div>
+            </div>
+
+            {/* Info Section */}
+            <div style={{padding: 20, background: "#f0f9ff", borderRadius: 8, border: "1px solid #bae6fd"}}>
+              <h3 style={{margin: "0 0 10px 0", color: "#0369a1"}}>ℹ️ System Information</h3>
+              <ul style={{margin: 0, paddingLeft: 20, fontSize: 14, color: "#0369a1"}}>
+                <li>Total Employees: {employees.length}</li>
+                <li>Total Logs: {logs.length}</li>
+                <li>Auto-refresh: Every 30 seconds</li>
+                <li>Database: Supabase (Free Tier - 500 MB limit)</li>
+              </ul>
             </div>
           </div>
         )}
@@ -635,6 +782,8 @@ const styles = {
   headerTitle: { margin: 0, fontSize: 22, fontWeight: 700 },
   logoutButton: { padding: "8px 16px", background: "#ef4444", color: "white", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: 600 },
   refreshButton: { padding: "8px 16px", background: "#3b82f6", color: "white", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: 600 },
+  exportButton: { padding: "10px 20px", background: "#059669", color: "white", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: 700, fontSize: 14 },
+  archiveButton: { padding: "10px 20px", background: "#dc2626", color: "white", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: 700, fontSize: 14 },
   nav: { background: "white", borderBottom: "1px solid #e2e8f0", padding: "0 24px", display: "flex", gap: 8, overflowX: "auto" },
   navButton: { padding: "14px 20px", background: "none", border: "none", borderBottom: "3px solid transparent", cursor: "pointer", fontSize: 15, color: "#64748b", fontWeight: 500, whiteSpace: "nowrap" },
   navButtonActive: { padding: "14px 20px", background: "none", border: "none", borderBottom: "3px solid #3b82f6", cursor: "pointer", fontSize: 15, color: "#3b82f6", fontWeight: 600, whiteSpace: "nowrap" },
@@ -657,6 +806,12 @@ const styles = {
   badgeOutside: { padding: "4px 10px", borderRadius: 20, fontSize: 12, fontWeight: 700, background: "#fee2e2", color: "#991b1b" },
   badgeIn: { padding: "4px 10px", borderRadius: 20, fontSize: 12, fontWeight: 700, background: "#dcfce7", color: "#166534" },
   badgeOut: { padding: "4px 10px", borderRadius: 20, fontSize: 12, fontWeight: 700, background: "#fee2e2", color: "#991b1b" },
+  daysPresentBadge: { padding: "4px 10px", borderRadius: 20, fontSize: 12, fontWeight: 700, background: "#e0e7ff", color: "#3730a3" },
+  insideTimeBadge: { display: "inline-block", padding: "6px 12px", background: "#dcfce7", color: "#166534", borderRadius: 6, fontWeight: "700", fontSize: 14 },
+  outsideTimeBadge: { display: "inline-block", padding: "6px 12px", background: "#fee2e2", color: "#991b1b", borderRadius: 6, fontWeight: "700", fontSize: 14 },
+  currentSessionInside: { display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "#f0fdf4", borderRadius: 8, border: "1px solid #bbf7d0" },
+  currentSessionOutside: { display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "#fef2f2", borderRadius: 8, border: "1px solid #fecaca" },
+  sessionCard: { padding: "8px 12px", background: "#f8fafc", borderRadius: 6, border: "1px solid #e2e8f0" },
   form: { display: "flex", flexDirection: "column", gap: 16 },
   formRow: { display: "flex", gap: 16, flexWrap: "wrap" },
   input: { flex: 1, padding: 12, border: "1px solid #d1d5db", borderRadius: 6, fontSize: 14, minWidth: 200 },
@@ -667,9 +822,4 @@ const styles = {
   deleteButton: { padding: "6px 12px", background: "#ef4444", color: "white", border: "none", borderRadius: 4, cursor: "pointer", fontSize: 12, fontWeight: 600 },
   modalOverlay: { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.6)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1000 },
   modalContent: { background: "#f8fafc", padding: 30, borderRadius: 12, maxWidth: 450, width: "90%" },
-    currentSessionInside: { display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "#f0fdf4", borderRadius: 8, border: "1px solid #bbf7d0" },
-  currentSessionOutside: { display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "#fef2f2", borderRadius: 8, border: "1px solid #fecaca" },
-  insideTimeBadge: { display: "inline-block", padding: "6px 12px", background: "#dcfce7", color: "#166534", borderRadius: 6, fontWeight: "700", fontSize: 14 },
-  outsideTimeBadge: { display: "inline-block", padding: "6px 12px", background: "#fee2e2", color: "#991b1b", borderRadius: 6, fontWeight: "700", fontSize: 14 },
-  sessionCard: { padding: "8px 12px", background: "#f8fafc", borderRadius: 6, border: "1px solid #e2e8f0" },
 };
