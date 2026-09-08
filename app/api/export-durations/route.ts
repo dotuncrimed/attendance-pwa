@@ -4,29 +4,61 @@ import { getSupabaseAdmin } from "../../../lib/supabaseAdmin";
 
 export const dynamic = "force-dynamic";
 
+// Helper function to format date in UTC+8
+function formatDateTimeUTC8(dateString) {
+  if (!dateString) return "N/A";
+  const date = new Date(dateString);
+  return date.toLocaleString("en-US", {
+    timeZone: "Asia/Manila", // UTC+8
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  });
+}
+
+function formatTimeUTC8(dateString) {
+  if (!dateString) return "N/A";
+  const date = new Date(dateString);
+  return date.toLocaleString("en-US", {
+    timeZone: "Asia/Manila",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
-    const period = searchParams.get("period") || "today"; // today, week, month
+    const period = searchParams.get("period") || "today";
 
     const supabase = getSupabaseAdmin();
 
-    // Calculate date range based on period
+    // Calculate date range based on period (using UTC+8)
     const now = new Date();
     let startDate = new Date();
     let periodLabel = "";
 
     if (period === "today") {
-      startDate.setHours(0, 0, 0, 0);
+      // Get today's start in UTC+8
+      const todayStr = now.toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
+      startDate = new Date(`${todayStr}T00:00:00+08:00`);
       periodLabel = "Today";
     } else if (period === "week") {
-      const dayOfWeek = now.getDay();
-      startDate.setDate(now.getDate() - dayOfWeek);
-      startDate.setHours(0, 0, 0, 0);
+      const todayStr = now.toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
+      const todayDate = new Date(`${todayStr}T00:00:00+08:00`);
+      const dayOfWeek = todayDate.getDay();
+      todayDate.setDate(todayDate.getDate() - dayOfWeek);
+      startDate = todayDate;
       periodLabel = "This Week";
     } else if (period === "month") {
-      startDate.setDate(1);
-      startDate.setHours(0, 0, 0, 0);
+      const todayStr = now.toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
+      const yearMonth = todayStr.substring(0, 7);
+      startDate = new Date(`${yearMonth}-01T00:00:00+08:00`);
       periodLabel = "This Month";
     }
 
@@ -41,7 +73,6 @@ export async function GET(request) {
 
     const summaries = await Promise.all(
       employees.map(async (emp) => {
-        // Get all logs for this employee in the period
         const { data: logs } = await supabase
           .from("attendance_logs")
           .select("direction, scanned_at")
@@ -49,7 +80,7 @@ export async function GET(request) {
           .gte("scanned_at", startDateISO)
           .order("scanned_at", { ascending: true });
 
-        // Get the very last log (regardless of period)
+        // Get the very last log
         const { data: lastLogAll } = await supabase
           .from("attendance_logs")
           .select("direction, scanned_at")
@@ -63,17 +94,14 @@ export async function GET(request) {
             employee_no: emp.employee_no,
             full_name: emp.full_name,
             department: emp.department || "",
-            inside_minutes: 0,
             inside_formatted: "0h 0m",
-            outside_minutes: 0,
             outside_formatted: "0h 0m",
             last_log_direction: lastLogAll ? (lastLogAll.direction === "in" ? "IN" : "OUT") : "N/A",
-            last_log_time: lastLogAll ? new Date(lastLogAll.scanned_at).toLocaleString() : "No logs",
+            last_log_time: lastLogAll ? formatDateTimeUTC8(lastLogAll.scanned_at) : "No logs",
             total_scans: 0,
           };
         }
 
-        // Calculate inside and outside time
         let insideMinutes = 0;
         let outsideMinutes = 0;
         let currentIn = null;
@@ -82,18 +110,13 @@ export async function GET(request) {
         for (const log of logs) {
           if (log.direction === "in") {
             currentIn = new Date(log.scanned_at);
-            
-            // If there was a previous OUT, calculate outside time
             if (currentOut) {
               const outsideMs = currentIn.getTime() - currentOut.getTime();
               outsideMinutes += Math.round(outsideMs / 60000);
             }
             currentOut = null;
-
           } else if (log.direction === "out") {
             currentOut = new Date(log.scanned_at);
-            
-            // If there was a previous IN, calculate inside time
             if (currentIn) {
               const insideMs = currentOut.getTime() - currentIn.getTime();
               insideMinutes += Math.round(insideMs / 60000);
@@ -102,13 +125,11 @@ export async function GET(request) {
           }
         }
 
-        // If currently inside (no OUT yet), count until now
         if (currentIn && !currentOut) {
           const nowTime = new Date();
           insideMinutes += Math.round((nowTime.getTime() - currentIn.getTime()) / 60000);
         }
 
-        // If currently outside (no IN yet), count until now
         if (currentOut && !currentIn) {
           const nowTime = new Date();
           outsideMinutes += Math.round((nowTime.getTime() - currentOut.getTime()) / 60000);
@@ -123,12 +144,10 @@ export async function GET(request) {
           employee_no: emp.employee_no,
           full_name: emp.full_name,
           department: emp.department || "",
-          inside_minutes: insideMinutes,
           inside_formatted: `${insideHours}h ${insideMins}m`,
-          outside_minutes: outsideMinutes,
           outside_formatted: `${outsideHours}h ${outsideMins}m`,
           last_log_direction: lastLogAll ? (lastLogAll.direction === "in" ? "IN" : "OUT") : "N/A",
-          last_log_time: lastLogAll ? new Date(lastLogAll.scanned_at).toLocaleString() : "No logs",
+          last_log_time: lastLogAll ? formatDateTimeUTC8(lastLogAll.scanned_at) : "No logs",
           total_scans: logs.length,
         };
       })
@@ -137,12 +156,12 @@ export async function GET(request) {
     // Generate CSV
     const headers = [
       "Employee No",
-      "Employee Name", 
+      "Employee Name",
       "Department",
       `Total Inside (${periodLabel})`,
       `Total Outside (${periodLabel})`,
       "Last Log Direction",
-      "Last Log Time",
+      "Last Log Time (UTC+8)",
       "Total Scans",
     ];
 
@@ -157,9 +176,11 @@ export async function GET(request) {
       s.total_scans,
     ]);
 
+    const nowFormatted = formatDateTimeUTC8(now.toISOString());
+
     const csvContent = [
       `Duration Summary Report - ${periodLabel}`,
-      `Generated: ${now.toLocaleString()}`,
+      `Generated: ${nowFormatted} (UTC+8)`,
       "",
       headers.join(","),
       ...rows.map(row => row.map(cell => `"${cell}"`).join(","))

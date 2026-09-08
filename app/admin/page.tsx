@@ -332,8 +332,8 @@ export default function AdminPage() {
   const insideCount = employeeStatus.filter(e => e.current_status === "inside").length;
   const outsideCount = employeeStatus.filter(e => e.current_status === "outside").length;
   const todayLogs = logs.filter(log => {
-    const logDate = new Date(log.scanned_at).toDateString();
-    const today = new Date().toDateString();
+    const logDate = new Date(log.scanned_at).toLocaleDateString("en-US", { timeZone: "Asia/Manila", weekday: "long", year: "numeric", month: "long", day: "numeric" });
+    const today = new Date().toLocaleDateString("en-US", { timeZone: "Asia/Manila", weekday: "long", year: "numeric", month: "long", day: "numeric" });
     return logDate === today;
   });
 

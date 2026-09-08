@@ -4,6 +4,43 @@ import { getSupabaseAdmin } from "../../../lib/supabaseAdmin";
 
 export const dynamic = "force-dynamic";
 
+function formatDateTimeUTC8(dateString) {
+  if (!dateString) return "N/A";
+  const date = new Date(dateString);
+  return date.toLocaleString("en-US", {
+    timeZone: "Asia/Manila",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  });
+}
+
+function formatTimeUTC8(dateString) {
+  if (!dateString) return "N/A";
+  const date = new Date(dateString);
+  return date.toLocaleString("en-US", {
+    timeZone: "Asia/Manila",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
+function formatDateUTC8(dateString) {
+  if (!dateString) return "N/A";
+  const date = new Date(dateString);
+  return date.toLocaleString("en-US", {
+    timeZone: "Asia/Manila",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+}
+
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -18,12 +55,11 @@ export async function GET(request) {
       .select("*, employees(employee_no, full_name, department)")
       .order("scanned_at", { ascending: false });
 
-    // Apply date filters
     if (startDate) {
-      query = query.gte("scanned_at", `${startDate}T00:00:00`);
+      query = query.gte("scanned_at", `${startDate}T00:00:00+08:00`);
     }
     if (endDate) {
-      query = query.lte("scanned_at", `${endDate}T23:59:59`);
+      query = query.lte("scanned_at", `${endDate}T23:59:59+08:00`);
     }
 
     const { data: logs, error } = await query;
@@ -32,11 +68,10 @@ export async function GET(request) {
       return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     }
 
-    // Generate CSV
-    const headers = ["Date", "Time", "Employee No", "Employee Name", "Department", "Direction", "Entrance"];
+    const headers = ["Date (UTC+8)", "Time (UTC+8)", "Employee No", "Employee Name", "Department", "Direction", "Entrance"];
     const rows = logs.map(log => [
-      new Date(log.scanned_at).toLocaleDateString(),
-      new Date(log.scanned_at).toLocaleTimeString(),
+      formatDateUTC8(log.scanned_at),
+      formatTimeUTC8(log.scanned_at),
       log.employees?.employee_no || "",
       log.employees?.full_name || "",
       log.employees?.department || "",
