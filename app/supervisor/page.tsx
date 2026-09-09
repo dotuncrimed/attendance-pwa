@@ -30,50 +30,35 @@ export default function SupervisorPage() {
   const [sortDirection, setSortDirection] = useState("asc");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [durationDate, setDurationDate] = useState("");
 
-  const [formData, setFormData] = useState({
-    employee_no: "",
-    full_name: "",
-    department: "",
-    position: "",
-  });
+  const [formData, setFormData] = useState({ employee_no: "", full_name: "", department: "", position: "" });
 
   useEffect(() => {
     async function checkAuth() {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        router.push("/login");
-        return;
-      }
+      if (!session) { router.push("/login"); return; }
       setUser(session.user);
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", session.user.id)
-        .single();
-
-      if (profile?.role === "supervisor") {
-        setIsSupervisor(true);
-        loadData();
-      } else if (profile?.role === "admin") {
-        router.push("/admin");
-      } else {
-        router.push("/guard");
-      }
+      const { data: profile } = await supabase.from("profiles").select("role").eq("id", session.user.id).single();
+      if (profile?.role === "supervisor") { setIsSupervisor(true); loadData(); }
+      else if (profile?.role === "admin") { router.push("/admin"); }
+      else { router.push("/guard"); }
       setLoading(false);
     }
     checkAuth();
   }, [router]);
 
-  // Auto-refresh every 30 seconds
+  async function loadDurations(dateStr) {
+    const durRes = await fetch("/api/durations" + (dateStr ? `?date=${dateStr}` : ""));
+    const durData = await durRes.json();
+    if (durData.ok) setDurations(durData.employees);
+  }
+
   useEffect(() => {
     if (!isSupervisor) return;
-    const interval = setInterval(() => {
-      loadData();
-    }, 30000);
+    const interval = setInterval(() => { loadData(); }, 30000);
     return () => clearInterval(interval);
-  }, [isSupervisor]);
+  }, [isSupervisor, durationDate]);
 
   async function loadData() {
     const empRes = await fetch("/api/employees");
@@ -84,9 +69,7 @@ export default function SupervisorPage() {
     const statusData = await statusRes.json();
     if (statusData.ok) setEmployeeStatus(statusData.employees);
 
-    const durRes = await fetch("/api/durations");
-    const durData = await durRes.json();
-    if (durData.ok) setDurations(durData.employees);
+    await loadDurations(durationDate);
 
     const logRes = await fetch("/api/logs");
     const logData = await logRes.json();
@@ -100,8 +83,7 @@ export default function SupervisorPage() {
       (emp.department && emp.department.toLowerCase().includes(searchTerm.toLowerCase()))
     );
     filtered.sort((a, b) => {
-      let aVal = a[sortField] || "";
-      let bVal = b[sortField] || "";
+      let aVal = a[sortField] || ""; let bVal = b[sortField] || "";
       if (typeof aVal === "string") aVal = aVal.toLowerCase();
       if (typeof bVal === "string") bVal = bVal.toLowerCase();
       if (sortDirection === "asc") return aVal > bVal ? 1 : -1;
@@ -117,8 +99,7 @@ export default function SupervisorPage() {
       (emp.department && emp.department.toLowerCase().includes(searchTerm.toLowerCase()))
     );
     filtered.sort((a, b) => {
-      let aVal = a[sortField] || "";
-      let bVal = b[sortField] || "";
+      let aVal = a[sortField] || ""; let bVal = b[sortField] || "";
       if (typeof aVal === "string") aVal = aVal.toLowerCase();
       if (typeof bVal === "string") bVal = bVal.toLowerCase();
       if (sortDirection === "asc") return aVal > bVal ? 1 : -1;
@@ -134,8 +115,7 @@ export default function SupervisorPage() {
       (emp.department && emp.department.toLowerCase().includes(searchTerm.toLowerCase()))
     );
     filtered.sort((a, b) => {
-      let aVal = a[sortField] || "";
-      let bVal = b[sortField] || "";
+      let aVal = a[sortField] || ""; let bVal = b[sortField] || "";
       if (typeof aVal === "string") aVal = aVal.toLowerCase();
       if (typeof bVal === "string") bVal = bVal.toLowerCase();
       if (sortDirection === "asc") return aVal > bVal ? 1 : -1;
@@ -152,12 +132,8 @@ export default function SupervisorPage() {
   }, [logs, startDate, endDate]);
 
   function handleSort(field) {
-    if (sortField === field) {
-      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
-    } else {
-      setSortField(field);
-      setSortDirection("asc");
-    }
+    if (sortField === field) setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    else { setSortField(field); setSortDirection("asc"); }
   }
 
   function getSortIcon(field) {
@@ -167,19 +143,10 @@ export default function SupervisorPage() {
 
   async function handleAddEmployee(e) {
     e.preventDefault();
-    const res = await fetch("/api/employees", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(formData),
-    });
+    const res = await fetch("/api/employees", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(formData) });
     const data = await res.json();
-    if (data.ok) {
-      alert("Employee added successfully!");
-      setFormData({ employee_no: "", full_name: "", department: "", position: "" });
-      loadData();
-    } else {
-      alert("Error: " + data.error);
-    }
+    if (data.ok) { alert("Employee added successfully!"); setFormData({ employee_no: "", full_name: "", department: "", position: "" }); loadData(); }
+    else { alert("Error: " + data.error); }
   }
 
   function handleExportCSV() {
@@ -193,6 +160,11 @@ export default function SupervisorPage() {
 
   function handleExportDurations(period) {
     window.open(`/api/export-durations?period=${period}`, "_blank");
+  }
+
+  function handleExportViewedDate() {
+    const url = durationDate ? `/api/export-durations?date=${durationDate}` : "/api/export-durations?period=today";
+    window.open(url, "_blank");
   }
 
   async function handleLogout() {
@@ -211,8 +183,8 @@ export default function SupervisorPage() {
       <header style={styles.header}>
         <div style={styles.headerContent}>
           <h1 style={styles.headerTitle}>📋 Supervisor Dashboard</h1>
-          <div style={{display: "flex", alignItems: "center", gap: 16}}>
-            <span style={{fontSize: 12, color: "#94a3b8"}}>{user?.email}</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            <span style={{ fontSize: 12, color: "#94a3b8" }}>{user?.email}</span>
             <button onClick={handleLogout} style={styles.logoutButton}>Logout</button>
           </div>
         </div>
@@ -226,35 +198,26 @@ export default function SupervisorPage() {
       </nav>
 
       <main style={styles.mainContent}>
-        {/* SEARCH BAR */}
         <div style={styles.searchContainer}>
-          <input
-            type="text"
-            placeholder="🔍 Search by name, employee no, or department..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={styles.searchInput}
-          />
-          {searchTerm && (
-            <button onClick={() => setSearchTerm("")} style={styles.clearSearchButton}>✕ Clear</button>
-          )}
+          <input type="text" placeholder="🔍 Search by name, employee no, or department..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={styles.searchInput} />
+          {searchTerm && <button onClick={() => setSearchTerm("")} style={styles.clearSearchButton}>✕ Clear</button>}
         </div>
 
         {/* DASHBOARD TAB */}
         {activeTab === "dashboard" && (
           <div>
             <div style={styles.statsGrid}>
-              <div style={{...styles.statCard, borderLeft: "4px solid #3b82f6"}}>
+              <div style={{ ...styles.statCard, borderLeft: "4px solid #3b82f6" }}>
                 <p style={styles.statLabel}>Total Employees</p>
                 <p style={styles.statValue}>{employees.length}</p>
               </div>
-              <div style={{...styles.statCard, borderLeft: "4px solid #22c55e"}}>
+              <div style={{ ...styles.statCard, borderLeft: "4px solid #22c55e" }}>
                 <p style={styles.statLabel}>Currently Inside</p>
-                <p style={{...styles.statValue, color: "#22c55e"}}>{insideCount}</p>
+                <p style={{ ...styles.statValue, color: "#22c55e" }}>{insideCount}</p>
               </div>
-              <div style={{...styles.statCard, borderLeft: "4px solid #ef4444"}}>
+              <div style={{ ...styles.statCard, borderLeft: "4px solid #ef4444" }}>
                 <p style={styles.statLabel}>Currently Outside</p>
-                <p style={{...styles.statValue, color: "#ef4444"}}>{outsideCount}</p>
+                <p style={{ ...styles.statValue, color: "#ef4444" }}>{outsideCount}</p>
               </div>
             </div>
 
@@ -274,8 +237,8 @@ export default function SupervisorPage() {
                     {filteredAndSortedStatus.map((emp) => (
                       <tr key={emp.id} style={styles.tr}>
                         <td style={styles.td}>
-                          <div style={{fontWeight: "600"}}>{emp.full_name}</div>
-                          <div style={{fontSize: "12px", color: "#6b7280"}}>{emp.employee_no}</div>
+                          <div style={{ fontWeight: "600" }}>{emp.full_name}</div>
+                          <div style={{ fontSize: "12px", color: "#6b7280" }}>{emp.employee_no}</div>
                         </td>
                         <td style={styles.td}>{emp.department || "-"}</td>
                         <td style={styles.td}>
@@ -283,9 +246,7 @@ export default function SupervisorPage() {
                             {emp.current_status === "inside" ? "🟢 INSIDE" : "🔴 OUTSIDE"}
                           </span>
                         </td>
-                        <td style={styles.td}>
-                          {emp.last_scan_time ? new Date(emp.last_scan_time).toLocaleTimeString() : "Never scanned"}
-                        </td>
+                        <td style={styles.td}>{emp.last_scan_time ? new Date(emp.last_scan_time).toLocaleTimeString() : "Never scanned"}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -298,9 +259,23 @@ export default function SupervisorPage() {
         {/* DURATIONS TAB */}
         {activeTab === "durations" && (
           <div style={styles.card}>
-            <h2 style={styles.cardTitle}>⏱️ Work Duration - Today</h2>
-            <p style={{color: "#6b7280", fontSize: 14, marginTop: -10, marginBottom: 20}}>
-              Green = Inside, Red = Outside. If OUT for 2+ hours, employee is considered "went home".
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, marginBottom: 8 }}>
+              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#1e293b" }}>
+                ⏱️ Work Duration - {durationDate ? durationDate : "Today"}
+              </h2>
+              <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                <input
+                  type="date"
+                  value={durationDate}
+                  onChange={(e) => { setDurationDate(e.target.value); loadDurations(e.target.value); }}
+                  style={{ padding: "8px 12px", border: "1px solid #d1d5db", borderRadius: 6, fontSize: 14 }}
+                />
+                <button onClick={() => { setDurationDate(""); loadDurations(""); }} style={styles.cancelButton}>Today</button>
+                <button onClick={handleExportViewedDate} style={styles.exportButton}>📥 Export Viewed Date</button>
+              </div>
+            </div>
+            <p style={{ color: "#6b7280", fontSize: 14, marginTop: 0, marginBottom: 20 }}>
+              Green = Inside, Red = Outside. Outside time is counted when the employee returns. Went home = last scan is OUT.
             </p>
             <div style={styles.tableWrapper}>
               <table style={styles.table}>
@@ -308,8 +283,8 @@ export default function SupervisorPage() {
                   <tr>
                     <th style={styles.th} onClick={() => handleSort("full_name")}>Employee{getSortIcon("full_name")}</th>
                     <th style={styles.th}>Current Session</th>
-                    <th style={styles.th}>Today's Inside</th>
-                    <th style={styles.th}>Today's Outside</th>
+                    <th style={styles.th}>{durationDate ? `Inside (${durationDate})` : "Today's Inside"}</th>
+                    <th style={styles.th}>{durationDate ? `Outside (${durationDate})` : "Today's Outside"}</th>
                     <th style={styles.th}>Last 3 Sessions</th>
                   </tr>
                 </thead>
@@ -317,58 +292,62 @@ export default function SupervisorPage() {
                   {filteredAndSortedDurations.map((emp) => (
                     <tr key={emp.id} style={styles.tr}>
                       <td style={styles.td}>
-                        <div style={{fontWeight: "600"}}>{emp.full_name}</div>
-                        <div style={{fontSize: "12px", color: "#6b7280"}}>{emp.employee_no}</div>
+                        <div style={{ fontWeight: "600" }}>{emp.full_name}</div>
+                        <div style={{ fontSize: "12px", color: "#6b7280" }}>{emp.employee_no}</div>
                       </td>
                       <td style={styles.td}>
-                        {emp.went_home ? (
-                          <div style={styles.wentHomeBadge}>🏠 Went Home</div>
-                        ) : emp.current_status === "inside" ? (
-                          <div style={styles.currentSessionInside}>
-                            <span style={{fontSize: 18}}>🟢</span>
-                            <div>
-                              <div style={{fontWeight: "700", color: "#16a34a"}}>INSIDE</div>
-                              <div style={{fontSize: 14, color: "#16a34a"}}>⏳ {formatDuration(emp.current_session_minutes)}</div>
+                        {durationDate === "" ? (
+                          emp.went_home ? (
+                            <div style={styles.wentHomeBadge}>🏠 Went Home</div>
+                          ) : emp.current_status === "inside" ? (
+                            <div style={styles.currentSessionInside}>
+                              <span style={{ fontSize: 18 }}>🟢</span>
+                              <div>
+                                <div style={{ fontWeight: "700", color: "#16a34a" }}>INSIDE</div>
+                                <div style={{ fontSize: 14, color: "#16a34a" }}>⏳ {formatDuration(emp.current_session_minutes)}</div>
+                              </div>
                             </div>
-                          </div>
+                          ) : (
+                            <div style={styles.currentSessionOutside}>
+                              <span style={{ fontSize: 18 }}>🔴</span>
+                              <div>
+                                <div style={{ fontWeight: "700", color: "#dc2626" }}>OUTSIDE</div>
+                                <div style={{ fontSize: 14, color: "#dc2626" }}>⏳ {formatDuration(emp.current_session_minutes)}</div>
+                              </div>
+                            </div>
+                          )
                         ) : (
-                          <div style={styles.currentSessionOutside}>
-                            <span style={{fontSize: 18}}>🔴</span>
-                            <div>
-                              <div style={{fontWeight: "700", color: "#dc2626"}}>OUTSIDE</div>
-                              <div style={{fontSize: 14, color: "#dc2626"}}>⏳ {formatDuration(emp.current_session_minutes)}</div>
+                          emp.missing_out ? (
+                            <div style={styles.wentHomeBadge}>⚠️ No OUT recorded</div>
+                          ) : emp.current_status === "inside" ? (
+                            <div style={styles.wentHomeBadge}>⚠️ No OUT recorded</div>
+                          ) : (
+                            <div style={styles.insideTimeBadge}>
+                              🔴 Left at {emp.last_out_time ? new Date(emp.last_out_time).toLocaleTimeString() : "—"}
                             </div>
-                          </div>
+                          )
                         )}
                       </td>
+                      <td style={styles.td}><span style={styles.insideTimeBadge}>🏭 {formatDuration(emp.today_inside_minutes)}</span></td>
+                      <td style={styles.td}><span style={styles.outsideTimeBadge}>🚪 {formatDuration(emp.today_outside_minutes)}</span></td>
                       <td style={styles.td}>
-                        <span style={styles.insideTimeBadge}>🏭 {formatDuration(emp.today_inside_minutes)}</span>
-                      </td>
-                      <td style={styles.td}>
-                        <span style={styles.outsideTimeBadge}>🚪 {formatDuration(emp.today_outside_minutes)}</span>
-                      </td>
-                      <td style={styles.td}>
-                        {emp.last_sessions.length > 0 ? (
-                          <div style={{display: "flex", flexDirection: "column", gap: 6}}>
+                        {emp.last_sessions && emp.last_sessions.length > 0 ? (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                             {emp.last_sessions.map((session, idx) => (
                               <div key={idx} style={styles.sessionCard}>
-                                <div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
-                                  <span style={{color: "#16a34a", fontWeight: "600", fontSize: 13}}>
-                                    IN {new Date(session.in_time).toLocaleTimeString()}
-                                  </span>
-                                  <span style={{color: "#9ca3af", fontSize: 12}}>→</span>
-                                  <span style={{color: "#dc2626", fontWeight: "600", fontSize: 13}}>
-                                    OUT {new Date(session.out_time).toLocaleTimeString()}
-                                  </span>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                  <span style={{ color: "#16a34a", fontWeight: "600", fontSize: 13 }}>IN {new Date(session.in_time).toLocaleTimeString()}</span>
+                                  <span style={{ color: "#9ca3af", fontSize: 12 }}>→</span>
+                                  <span style={{ color: "#dc2626", fontWeight: "600", fontSize: 13 }}>OUT {new Date(session.out_time).toLocaleTimeString()}</span>
                                 </div>
-                                <div style={{textAlign: "center", fontSize: 12, color: "#6b7280", marginTop: 2}}>
+                                <div style={{ textAlign: "center", fontSize: 12, color: "#6b7280", marginTop: 2 }}>
                                   Duration: <strong>{formatDuration(session.duration_minutes)}</strong>
                                 </div>
                               </div>
                             ))}
                           </div>
                         ) : (
-                          <span style={{color: "#9ca3af", fontSize: 13}}>No completed sessions today</span>
+                          <span style={{ color: "#9ca3af", fontSize: 13 }}>No completed sessions</span>
                         )}
                       </td>
                     </tr>
@@ -412,15 +391,13 @@ export default function SupervisorPage() {
                   </thead>
                   <tbody>
                     {filteredAndSortedEmployees.map((emp) => (
-                      <tr key={emp.id} style={{...styles.tr, opacity: emp.active ? 1 : 0.5}}>
+                      <tr key={emp.id} style={{ ...styles.tr, opacity: emp.active ? 1 : 0.5 }}>
                         <td style={styles.td}>{emp.employee_no}</td>
-                        <td style={{...styles.td, fontWeight: "600"}}>{emp.full_name}</td>
+                        <td style={{ ...styles.td, fontWeight: "600" }}>{emp.full_name}</td>
                         <td style={styles.td}>{emp.department || "-"}</td>
                         <td style={styles.td}>{emp.position || "-"}</td>
                         <td style={styles.td}>
-                          <span style={emp.active ? styles.badgeInside : styles.badgeOutside}>
-                            {emp.active ? "Active" : "Inactive"}
-                          </span>
+                          <span style={emp.active ? styles.badgeInside : styles.badgeOutside}>{emp.active ? "Active" : "Inactive"}</span>
                         </td>
                       </tr>
                     ))}
@@ -436,13 +413,13 @@ export default function SupervisorPage() {
           <div>
             <div style={styles.card}>
               <h2 style={styles.cardTitle}>📅 Date Range Filter</h2>
-              <div style={{display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center"}}>
+              <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
                 <div>
-                  <label style={{fontSize: 13, color: "#6b7280", display: "block", marginBottom: 4}}>Start Date</label>
+                  <label style={{ fontSize: 13, color: "#6b7280", display: "block", marginBottom: 4 }}>Start Date</label>
                   <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} style={styles.input} />
                 </div>
                 <div>
-                  <label style={{fontSize: 13, color: "#6b7280", display: "block", marginBottom: 4}}>End Date</label>
+                  <label style={{ fontSize: 13, color: "#6b7280", display: "block", marginBottom: 4 }}>End Date</label>
                   <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} style={styles.input} />
                 </div>
                 <button onClick={() => { setStartDate(""); setEndDate(""); }} style={styles.cancelButton}>Reset</button>
@@ -451,16 +428,16 @@ export default function SupervisorPage() {
 
             <div style={styles.card}>
               <h2 style={styles.cardTitle}>📥 Download Reports</h2>
-              <div style={{marginBottom: 24, padding: 20, background: "#f0f9ff", borderRadius: 8, border: "1px solid #bae6fd"}}>
-                <h3 style={{margin: "0 0 10px 0", color: "#0369a1"}}>📜 Attendance Logs</h3>
+              <div style={{ marginBottom: 24, padding: 20, background: "#f0f9ff", borderRadius: 8, border: "1px solid #bae6fd" }}>
+                <h3 style={{ margin: "0 0 10px 0", color: "#0369a1" }}>📜 Attendance Logs</h3>
                 <button onClick={handleExportCSV} style={styles.exportButton}>📥 Download Attendance CSV</button>
               </div>
-              <div style={{padding: 20, background: "#f0fdf4", borderRadius: 8, border: "1px solid #bbf7d0"}}>
-                <h3 style={{margin: "0 0 10px 0", color: "#166534"}}>⏱️ Duration Summary</h3>
-                <div style={{display: "flex", gap: 12, flexWrap: "wrap"}}>
+              <div style={{ padding: 20, background: "#f0fdf4", borderRadius: 8, border: "1px solid #bbf7d0" }}>
+                <h3 style={{ margin: "0 0 10px 0", color: "#166534" }}>⏱️ Duration Summary</h3>
+                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                   <button onClick={() => handleExportDurations("today")} style={styles.exportButton}>📊 Today</button>
-                  <button onClick={() => handleExportDurations("week")} style={{...styles.exportButton, background: "#7c3aed"}}>📊 This Week</button>
-                  <button onClick={() => handleExportDurations("month")} style={{...styles.exportButton, background: "#0891b2"}}>📊 This Month</button>
+                  <button onClick={() => handleExportDurations("week")} style={{ ...styles.exportButton, background: "#7c3aed" }}>📊 This Week</button>
+                  <button onClick={() => handleExportDurations("month")} style={{ ...styles.exportButton, background: "#0891b2" }}>📊 This Month</button>
                 </div>
               </div>
             </div>
@@ -481,13 +458,11 @@ export default function SupervisorPage() {
                       <tr key={log.id} style={styles.tr}>
                         <td style={styles.td}>{new Date(log.scanned_at).toLocaleString()}</td>
                         <td style={styles.td}>
-                          <div style={{fontWeight: "600"}}>{log.employees?.full_name}</div>
-                          <div style={{fontSize: "12px", color: "#6b7280"}}>{log.employees?.employee_no}</div>
+                          <div style={{ fontWeight: "600" }}>{log.employees?.full_name}</div>
+                          <div style={{ fontSize: "12px", color: "#6b7280" }}>{log.employees?.employee_no}</div>
                         </td>
                         <td style={styles.td}>
-                          <span style={log.direction === "in" ? styles.badgeIn : styles.badgeOut}>
-                            {log.direction === "in" ? "IN" : "OUT"}
-                          </span>
+                          <span style={log.direction === "in" ? styles.badgeIn : styles.badgeOut}>{log.direction === "in" ? "IN" : "OUT"}</span>
                         </td>
                       </tr>
                     ))}
@@ -533,7 +508,7 @@ const styles = {
   badgeOut: { padding: "4px 10px", borderRadius: 20, fontSize: 12, fontWeight: 700, background: "#fee2e2", color: "#991b1b" },
   insideTimeBadge: { display: "inline-block", padding: "6px 12px", background: "#dcfce7", color: "#166534", borderRadius: 6, fontWeight: "700", fontSize: 14 },
   outsideTimeBadge: { display: "inline-block", padding: "6px 12px", background: "#fee2e2", color: "#991b1b", borderRadius: 6, fontWeight: "700", fontSize: 14 },
-  wentHomeBadge: { display: "inline-block", padding: "6px 12px", background: "#fef3c7", color: "#92400e", borderRadius: 6, fontWeight: "700", fontSize: 14 },
+  wentHomeBadge: { display: "inline-block", padding: "6px 12px", background: "#fef3c7", color: "#92400e", borderRadius: 6, fontWeight: 700, fontSize: 14 },
   currentSessionInside: { display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "#f0fdf4", borderRadius: 8, border: "1px solid #bbf7d0" },
   currentSessionOutside: { display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "#fef2f2", borderRadius: 8, border: "1px solid #fecaca" },
   sessionCard: { padding: "8px 12px", background: "#f8fafc", borderRadius: 6, border: "1px solid #e2e8f0" },
@@ -541,6 +516,6 @@ const styles = {
   formRow: { display: "flex", gap: 16, flexWrap: "wrap" },
   input: { flex: 1, padding: 12, border: "1px solid #d1d5db", borderRadius: 6, fontSize: 14, minWidth: 200 },
   primaryButton: { padding: "12px 24px", background: "#0f766e", color: "white", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: 700, fontSize: 15 },
-  cancelButton: { padding: "12px 24px", background: "#6b7280", color: "white", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: 700, fontSize: 15 },
+  cancelButton: { padding: "10px 20px", background: "#6b7280", color: "white", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: 700, fontSize: 14 },
   exportButton: { padding: "10px 20px", background: "#059669", color: "white", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: 700, fontSize: 14 },
 };

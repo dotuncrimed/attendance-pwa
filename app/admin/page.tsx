@@ -25,79 +25,49 @@ export default function AdminPage() {
   const [durations, setDurations] = useState([]);
   const [logs, setLogs] = useState([]);
   const [summaries, setSummaries] = useState([]);
+  const [users, setUsers] = useState([]);
   const [qrModal, setQrModal] = useState(null);
   const [editModal, setEditModal] = useState(null);
   const [activeTab, setActiveTab] = useState("dashboard");
 
-  // Search & Sort states
   const [searchTerm, setSearchTerm] = useState("");
   const [sortField, setSortField] = useState("employee_no");
   const [sortDirection, setSortDirection] = useState("asc");
-
-  // Date filter states
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-
-  // Archive state
-  const [archiveMonths, setArchiveMonths] = useState(6);
-  const [users, setUsers] = useState([]);
   const [durationDate, setDurationDate] = useState("");
-  const [userFormData, setUserFormData] = useState({ email: "", password: "", full_name: "", role: "guard" });
-
-  // Auto-refresh state
+  const [archiveMonths, setArchiveMonths] = useState(6);
   const [lastRefresh, setLastRefresh] = useState(new Date());
 
-  const [formData, setFormData] = useState({
-    employee_no: "",
-    full_name: "",
-    department: "",
-    position: "",
-  });
-
-  const [editFormData, setEditFormData] = useState({
-    id: "",
-    employee_no: "",
-    full_name: "",
-    department: "",
-    position: "",
-    active: true,
-  });
+  const [formData, setFormData] = useState({ employee_no: "", full_name: "", department: "", position: "" });
+  const [editFormData, setEditFormData] = useState({ id: "", employee_no: "", full_name: "", department: "", position: "", active: true });
+  const [userFormData, setUserFormData] = useState({ email: "", password: "", full_name: "", role: "guard" });
 
   useEffect(() => {
     async function checkAuth() {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        router.push("/login");
-        return;
-      }
+      if (!session) { router.push("/login"); return; }
       setUser(session.user);
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", session.user.id)
-        .single();
-
-      if (profile?.role === "admin") {
-        setIsAdmin(true);
-        loadData();
-      } else {
-        router.push("/guard");
-      }
+      const { data: profile } = await supabase.from("profiles").select("role").eq("id", session.user.id).single();
+      if (profile?.role === "admin") { setIsAdmin(true); loadData(); }
+      else if (profile?.role === "supervisor") { router.push("/supervisor"); }
+      else { router.push("/guard"); }
       setLoading(false);
     }
     checkAuth();
   }, [router]);
 
-  // AUTO-REFRESH: Reload data every 30 seconds
+  async function loadDurations(dateStr) {
+    const durRes = await fetch("/api/durations" + (dateStr ? `?date=${dateStr}` : ""));
+    const durData = await durRes.json();
+    if (durData.ok) setDurations(durData.employees);
+  }
+
   useEffect(() => {
     if (!isAdmin) return;
-    const interval = setInterval(() => {
-      loadData();
-      setLastRefresh(new Date());
-    }, 30000);
+    const interval = setInterval(() => { loadData(); setLastRefresh(new Date()); }, 30000);
     return () => clearInterval(interval);
-  }, [isAdmin]);
+  }, [isAdmin, durationDate]);
 
   async function loadData() {
     const empRes = await fetch("/api/employees");
@@ -108,33 +78,26 @@ export default function AdminPage() {
     const statusData = await statusRes.json();
     if (statusData.ok) setEmployeeStatus(statusData.employees);
 
-    const durRes = await fetch("/api/durations");
-    const durData = await durRes.json();
-    if (durData.ok) setDurations(durData.employees);
+    await loadDurations(durationDate);
 
     const logRes = await fetch("/api/logs");
     const logData = await logRes.json();
     if (logData.ok) setLogs(logData.logs);
 
-    // Load users
     const userRes = await fetch("/api/users");
     const userData = await userRes.json();
     if (userData.ok) setUsers(userData.users);
 
-    // Load summaries with date filter
     let summaryUrl = "/api/summary";
-    if (startDate || endDate) {
-      const params = new URLSearchParams();
-      if (startDate) params.append("startDate", startDate);
-      if (endDate) params.append("endDate", endDate);
-      summaryUrl += "?" + params.toString();
-    }
+    const params = new URLSearchParams();
+    if (startDate) params.append("startDate", startDate);
+    if (endDate) params.append("endDate", endDate);
+    if (params.toString()) summaryUrl += "?" + params.toString();
     const sumRes = await fetch(summaryUrl);
     const sumData = await sumRes.json();
     if (sumData.ok) setSummaries(sumData.summaries);
   }
 
-  // SEARCH & SORT logic
   const filteredAndSortedEmployees = useMemo(() => {
     let filtered = employees.filter(emp =>
       emp.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -142,16 +105,13 @@ export default function AdminPage() {
       (emp.department && emp.department.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (emp.position && emp.position.toLowerCase().includes(searchTerm.toLowerCase()))
     );
-
     filtered.sort((a, b) => {
-      let aVal = a[sortField] || "";
-      let bVal = b[sortField] || "";
+      let aVal = a[sortField] || ""; let bVal = b[sortField] || "";
       if (typeof aVal === "string") aVal = aVal.toLowerCase();
       if (typeof bVal === "string") bVal = bVal.toLowerCase();
       if (sortDirection === "asc") return aVal > bVal ? 1 : -1;
       return aVal < bVal ? 1 : -1;
     });
-
     return filtered;
   }, [employees, searchTerm, sortField, sortDirection]);
 
@@ -161,16 +121,13 @@ export default function AdminPage() {
       emp.employee_no.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (emp.department && emp.department.toLowerCase().includes(searchTerm.toLowerCase()))
     );
-
     filtered.sort((a, b) => {
-      let aVal = a[sortField] || "";
-      let bVal = b[sortField] || "";
+      let aVal = a[sortField] || ""; let bVal = b[sortField] || "";
       if (typeof aVal === "string") aVal = aVal.toLowerCase();
       if (typeof bVal === "string") bVal = bVal.toLowerCase();
       if (sortDirection === "asc") return aVal > bVal ? 1 : -1;
       return aVal < bVal ? 1 : -1;
     });
-
     return filtered;
   }, [employeeStatus, searchTerm, sortField, sortDirection]);
 
@@ -180,39 +137,26 @@ export default function AdminPage() {
       emp.employee_no.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (emp.department && emp.department.toLowerCase().includes(searchTerm.toLowerCase()))
     );
-
     filtered.sort((a, b) => {
-      let aVal = a[sortField] || "";
-      let bVal = b[sortField] || "";
+      let aVal = a[sortField] || ""; let bVal = b[sortField] || "";
       if (typeof aVal === "string") aVal = aVal.toLowerCase();
       if (typeof bVal === "string") bVal = bVal.toLowerCase();
       if (sortDirection === "asc") return aVal > bVal ? 1 : -1;
       return aVal < bVal ? 1 : -1;
     });
-
     return filtered;
   }, [durations, searchTerm, sortField, sortDirection]);
 
   const filteredLogs = useMemo(() => {
     let filtered = [...logs];
-    
-    if (startDate) {
-      filtered = filtered.filter(log => new Date(log.scanned_at) >= new Date(`${startDate}T00:00:00`));
-    }
-    if (endDate) {
-      filtered = filtered.filter(log => new Date(log.scanned_at) <= new Date(`${endDate}T23:59:59`));
-    }
-    
+    if (startDate) filtered = filtered.filter(log => new Date(log.scanned_at) >= new Date(`${startDate}T00:00:00`));
+    if (endDate) filtered = filtered.filter(log => new Date(log.scanned_at) <= new Date(`${endDate}T23:59:59`));
     return filtered;
   }, [logs, startDate, endDate]);
 
   function handleSort(field) {
-    if (sortField === field) {
-      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
-    } else {
-      setSortField(field);
-      setSortDirection("asc");
-    }
+    if (sortField === field) setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    else { setSortField(field); setSortDirection("asc"); }
   }
 
   function getSortIcon(field) {
@@ -220,156 +164,79 @@ export default function AdminPage() {
     return sortDirection === "asc" ? " ↑" : " ↓";
   }
 
-  // Export CSV
-  async function handleExportCSV() {
+  function handleExportCSV() {
     let url = "/api/export";
     const params = new URLSearchParams();
     if (startDate) params.append("startDate", startDate);
     if (endDate) params.append("endDate", endDate);
     if (params.toString()) url += "?" + params.toString();
-
     window.open(url, "_blank");
   }
 
-  // Archive old logs
+  function handleExportViewedDate() {
+    const url = durationDate ? `/api/export-durations?date=${durationDate}` : "/api/export-durations?period=today";
+    window.open(url, "_blank");
+  }
+
   async function handleArchive() {
     const confirmed = confirm(`Are you sure you want to delete all logs older than ${archiveMonths} month(s)? This cannot be undone!`);
     if (!confirmed) return;
-
-    const res = await fetch("/api/archive", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ monthsToKeep: archiveMonths }),
-    });
+    const res = await fetch("/api/archive", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ monthsToKeep: archiveMonths }) });
     const data = await res.json();
-    if (data.ok) {
-      alert(data.message);
-      loadData();
-    } else {
-      alert("Error: " + data.error);
-    }
+    if (data.ok) { alert(data.message); loadData(); } else { alert("Error: " + data.error); }
   }
 
-// USER MANAGEMENT
-  async function handleAddUser(e) {
-    e.preventDefault();
-    if (!userFormData.email || !userFormData.password) { 
-      alert("Email and Password are required (min 6 characters)"); 
-      return; 
-    }
-    const res = await fetch("/api/users", { 
-      method: "POST", 
-      headers: { "Content-Type": "application/json" }, 
-      body: JSON.stringify(userFormData) 
-    });
-    const data = await res.json();
-    if (data.ok) { 
-      alert("User added successfully!"); 
-      setUserFormData({ email: "", password: "", full_name: "", role: "guard" }); 
-      loadData(); 
-    } else { 
-      alert("Error: " + data.error); 
-    }
-  }
-
-  async function handleDeleteUser(u) {
-    if (u.id === user.id) { 
-      alert("You cannot delete your own account while logged in!"); 
-      return; 
-    }
-    if (!confirm(`Are you sure you want to permanently delete ${u.email}?`)) return;
-    
-    const res = await fetch("/api/users", { 
-      method: "DELETE", 
-      headers: { "Content-Type": "application/json" }, 
-      body: JSON.stringify({ id: u.id }) 
-    });
-    const data = await res.json();
-    if (data.ok) { 
-      alert("User deleted!"); 
-      loadData(); 
-    } else { 
-      alert("Error: " + data.error); 
-    }
-  }
-
-  // CRUD Operations
   async function handleAddEmployee(e) {
     e.preventDefault();
-    const res = await fetch("/api/employees", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(formData),
-    });
+    const res = await fetch("/api/employees", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(formData) });
     const data = await res.json();
-    if (data.ok) {
-      alert("Employee added successfully!");
-      setFormData({ employee_no: "", full_name: "", department: "", position: "" });
-      loadData();
-    } else {
-      alert("Error: " + data.error);
-    }
+    if (data.ok) { alert("Employee added successfully!"); setFormData({ employee_no: "", full_name: "", department: "", position: "" }); loadData(); }
+    else { alert("Error: " + data.error); }
   }
 
   function openEditModal(emp) {
-    setEditFormData({
-      id: emp.id,
-      employee_no: emp.employee_no,
-      full_name: emp.full_name,
-      department: emp.department || "",
-      position: emp.position || "",
-      active: emp.active,
-    });
+    setEditFormData({ id: emp.id, employee_no: emp.employee_no, full_name: emp.full_name, department: emp.department || "", position: emp.position || "", active: emp.active });
     setEditModal(emp);
   }
 
   async function handleUpdateEmployee(e) {
     e.preventDefault();
-    const res = await fetch("/api/employees", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(editFormData),
-    });
+    const res = await fetch("/api/employees", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(editFormData) });
     const data = await res.json();
-    if (data.ok) {
-      alert("Employee updated successfully!");
-      setEditModal(null);
-      loadData();
-    } else {
-      alert("Error: " + data.error);
-    }
+    if (data.ok) { alert("Employee updated successfully!"); setEditModal(null); loadData(); }
+    else { alert("Error: " + data.error); }
   }
 
   async function handleDeleteEmployee(emp) {
     const confirmed = confirm(`Are you sure you want to deactivate ${emp.full_name}?`);
     if (!confirmed) return;
-
-    const res = await fetch("/api/employees", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: emp.id }),
-    });
+    const res = await fetch("/api/employees", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: emp.id }) });
     const data = await res.json();
-    if (data.ok) {
-      alert("Employee deactivated successfully!");
-      loadData();
-    } else {
-      alert("Error: " + data.error);
-    }
+    if (data.ok) { alert("Employee deactivated successfully!"); loadData(); } else { alert("Error: " + data.error); }
   }
 
   async function handleGenerateQR(employeeId) {
-    const res = await fetch("/api/generate-qr", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ employeeId }),
-    });
+    const res = await fetch("/api/generate-qr", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ employeeId }) });
     const data = await res.json();
-    if (data.ok) {
-      setQrModal({ employeeId, qrContent: data.qrContent });
-    } else {
-      alert("Error: " + data.error);
-    }
+    if (data.ok) setQrModal({ employeeId, qrContent: data.qrContent });
+    else { alert("Error: " + data.error); }
+  }
+
+  async function handleAddUser(e) {
+    e.preventDefault();
+    if (!userFormData.email || !userFormData.password) { alert("Email and Password are required (min 6 characters)"); return; }
+    const res = await fetch("/api/users", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(userFormData) });
+    const data = await res.json();
+    if (data.ok) { alert("User added successfully!"); setUserFormData({ email: "", password: "", full_name: "", role: "guard" }); loadData(); }
+    else { alert("Error: " + data.error); }
+  }
+
+  async function handleDeleteUser(u) {
+    if (u.id === user.id) { alert("You cannot delete your own account while logged in!"); return; }
+    if (!confirm(`Are you sure you want to permanently delete ${u.email}?`)) return;
+    const res = await fetch("/api/users", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: u.id }) });
+    const data = await res.json();
+    if (data.ok) { alert("User deleted!"); loadData(); } else { alert("Error: " + data.error); }
   }
 
   async function handleLogout() {
@@ -382,24 +249,16 @@ export default function AdminPage() {
 
   const insideCount = employeeStatus.filter(e => e.current_status === "inside").length;
   const outsideCount = employeeStatus.filter(e => e.current_status === "outside").length;
-  const todayLogs = logs.filter(log => {
-    const logDate = new Date(log.scanned_at).toLocaleDateString("en-US", { timeZone: "Asia/Manila", weekday: "long", year: "numeric", month: "long", day: "numeric" });
-    const today = new Date().toLocaleDateString("en-US", { timeZone: "Asia/Manila", weekday: "long", year: "numeric", month: "long", day: "numeric" });
-    return logDate === today;
-  });
+  const todayLogs = logs.filter(log => new Date(log.scanned_at).toDateString() === new Date().toDateString());
 
   return (
     <div style={styles.pageContainer}>
       <header style={styles.header}>
         <div style={styles.headerContent}>
           <h1 style={styles.headerTitle}>📋 Attendance Admin</h1>
-          <div style={{display: "flex", alignItems: "center", gap: 16}}>
-            <span style={{fontSize: 12, color: "#94a3b8"}}>
-              Auto-refresh: {lastRefresh.toLocaleTimeString()}
-            </span>
-            <button onClick={() => { loadData(); setLastRefresh(new Date()); }} style={styles.refreshButton}>
-              🔄 Refresh
-            </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            <span style={{ fontSize: 12, color: "#94a3b8" }}>Auto-refresh: {lastRefresh.toLocaleTimeString()}</span>
+            <button onClick={() => { loadData(); setLastRefresh(new Date()); }} style={styles.refreshButton}>🔄 Refresh</button>
             <button onClick={handleLogout} style={styles.logoutButton}>Logout</button>
           </div>
         </div>
@@ -416,37 +275,28 @@ export default function AdminPage() {
       </nav>
 
       <main style={styles.mainContent}>
-        {/* SEARCH BAR */}
         <div style={styles.searchContainer}>
-          <input
-            type="text"
-            placeholder="🔍 Search by name, employee no, department, or position..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={styles.searchInput}
-          />
-          {searchTerm && (
-            <button onClick={() => setSearchTerm("")} style={styles.clearSearchButton}>✕ Clear</button>
-          )}
+          <input type="text" placeholder="🔍 Search by name, employee no, department, or position..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={styles.searchInput} />
+          {searchTerm && <button onClick={() => setSearchTerm("")} style={styles.clearSearchButton}>✕ Clear</button>}
         </div>
 
         {/* DASHBOARD TAB */}
         {activeTab === "dashboard" && (
           <div>
             <div style={styles.statsGrid}>
-              <div style={{...styles.statCard, borderLeft: "4px solid #3b82f6"}}>
+              <div style={{ ...styles.statCard, borderLeft: "4px solid #3b82f6" }}>
                 <p style={styles.statLabel}>Total Employees</p>
                 <p style={styles.statValue}>{employees.length}</p>
               </div>
-              <div style={{...styles.statCard, borderLeft: "4px solid #22c55e"}}>
+              <div style={{ ...styles.statCard, borderLeft: "4px solid #22c55e" }}>
                 <p style={styles.statLabel}>Currently Inside</p>
-                <p style={{...styles.statValue, color: "#22c55e"}}>{insideCount}</p>
+                <p style={{ ...styles.statValue, color: "#22c55e" }}>{insideCount}</p>
               </div>
-              <div style={{...styles.statCard, borderLeft: "4px solid #ef4444"}}>
+              <div style={{ ...styles.statCard, borderLeft: "4px solid #ef4444" }}>
                 <p style={styles.statLabel}>Currently Outside</p>
-                <p style={{...styles.statValue, color: "#ef4444"}}>{outsideCount}</p>
+                <p style={{ ...styles.statValue, color: "#ef4444" }}>{outsideCount}</p>
               </div>
-              <div style={{...styles.statCard, borderLeft: "4px solid #8b5cf6"}}>
+              <div style={{ ...styles.statCard, borderLeft: "4px solid #8b5cf6" }}>
                 <p style={styles.statLabel}>Today's Scans</p>
                 <p style={styles.statValue}>{todayLogs.length}</p>
               </div>
@@ -468,8 +318,8 @@ export default function AdminPage() {
                     {filteredAndSortedStatus.map((emp) => (
                       <tr key={emp.id} style={styles.tr}>
                         <td style={styles.td}>
-                          <div style={{fontWeight: "600"}}>{emp.full_name}</div>
-                          <div style={{fontSize: "12px", color: "#6b7280"}}>{emp.employee_no}</div>
+                          <div style={{ fontWeight: "600" }}>{emp.full_name}</div>
+                          <div style={{ fontSize: "12px", color: "#6b7280" }}>{emp.employee_no}</div>
                         </td>
                         <td style={styles.td}>{emp.department || "-"}</td>
                         <td style={styles.td}>
@@ -477,9 +327,7 @@ export default function AdminPage() {
                             {emp.current_status === "inside" ? "🟢 INSIDE" : "🔴 OUTSIDE"}
                           </span>
                         </td>
-                        <td style={styles.td}>
-                          {emp.last_scan_time ? new Date(emp.last_scan_time).toLocaleTimeString() : "Never scanned"}
-                        </td>
+                        <td style={styles.td}>{emp.last_scan_time ? new Date(emp.last_scan_time).toLocaleTimeString() : "Never scanned"}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -489,115 +337,104 @@ export default function AdminPage() {
           </div>
         )}
 
-                {/* DURATIONS TAB */}
+        {/* DURATIONS TAB */}
         {activeTab === "durations" && (
-          <div>
-            {/* Export Section */}
-            <div style={styles.card}>
-              <h2 style={styles.cardTitle}>📥 Export Duration Summary</h2>
-              <p style={{color: "#6b7280", fontSize: 14, marginTop: -10, marginBottom: 20}}>
-                Download a CSV summary of employee inside/outside time.
-              </p>
-              <div style={{display: "flex", gap: 12, flexWrap: "wrap"}}>
-                <button 
-                  onClick={() => window.open("/api/export-durations?period=today", "_blank")} 
-                  style={styles.exportButton}
-                >
-                  📊 Export Today
-                </button>
-                <button 
-                  onClick={() => window.open("/api/export-durations?period=week", "_blank")} 
-                  style={{...styles.exportButton, background: "#7c3aed"}}
-                >
-                  📊 Export This Week
-                </button>
-                <button 
-                  onClick={() => window.open("/api/export-durations?period=month", "_blank")} 
-                  style={{...styles.exportButton, background: "#0891b2"}}
-                >
-                  📊 Export This Month
-                </button>
+          <div style={styles.card}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, marginBottom: 8 }}>
+              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#1e293b" }}>
+                ⏱️ Work Duration - {durationDate ? durationDate : "Today"}
+              </h2>
+              <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                <input
+                  type="date"
+                  value={durationDate}
+                  onChange={(e) => { setDurationDate(e.target.value); loadDurations(e.target.value); }}
+                  style={{ padding: "8px 12px", border: "1px solid #d1d5db", borderRadius: 6, fontSize: 14 }}
+                />
+                <button onClick={() => { setDurationDate(""); loadDurations(""); }} style={styles.cancelButton}>Today</button>
+                <button onClick={handleExportViewedDate} style={styles.exportButton}>📥 Export Viewed Date</button>
               </div>
             </div>
-
-            {/* Durations Table */}
-            <div style={styles.card}>
-              <h2 style={styles.cardTitle}>⏱️ Work Duration - Today</h2>
-              <p style={{color: "#6b7280", fontSize: 14, marginTop: -10, marginBottom: 20}}>
-                Green = Inside warehouse, Red = Outside warehouse.
-              </p>
-              <div style={styles.tableWrapper}>
-                <table style={styles.table}>
-                  <thead>
-                    <tr>
-                      <th style={styles.th} onClick={() => handleSort("full_name")}>Employee{getSortIcon("full_name")}</th>
-                      <th style={styles.th}>Current Session</th>
-                      <th style={styles.th}>Today's Inside</th>
-                      <th style={styles.th}>Today's Outside</th>
-                      <th style={styles.th}>Last 3 Sessions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredAndSortedDurations.map((emp) => (
-                      <tr key={emp.id} style={styles.tr}>
-                        <td style={styles.td}>
-                          <div style={{fontWeight: "600"}}>{emp.full_name}</div>
-                          <div style={{fontSize: "12px", color: "#6b7280"}}>{emp.employee_no}</div>
-                        </td>
-                        <td style={styles.td}>
-                          {emp.current_status === "inside" ? (
+            <p style={{ color: "#6b7280", fontSize: 14, marginTop: 0, marginBottom: 20 }}>
+              Green = Inside, Red = Outside. Outside time is counted when the employee returns. Went home = last scan is OUT.
+            </p>
+            <div style={styles.tableWrapper}>
+              <table style={styles.table}>
+                <thead>
+                  <tr>
+                    <th style={styles.th} onClick={() => handleSort("full_name")}>Employee{getSortIcon("full_name")}</th>
+                    <th style={styles.th}>Current Session</th>
+                    <th style={styles.th}>{durationDate ? `Inside (${durationDate})` : "Today's Inside"}</th>
+                    <th style={styles.th}>{durationDate ? `Outside (${durationDate})` : "Today's Outside"}</th>
+                    <th style={styles.th}>Last 3 Sessions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredAndSortedDurations.map((emp) => (
+                    <tr key={emp.id} style={styles.tr}>
+                      <td style={styles.td}>
+                        <div style={{ fontWeight: "600" }}>{emp.full_name}</div>
+                        <div style={{ fontSize: "12px", color: "#6b7280" }}>{emp.employee_no}</div>
+                      </td>
+                      <td style={styles.td}>
+                        {durationDate === "" ? (
+                          emp.went_home ? (
+                            <div style={styles.wentHomeBadge}>🏠 Went Home</div>
+                          ) : emp.current_status === "inside" ? (
                             <div style={styles.currentSessionInside}>
-                              <span style={{fontSize: 18}}>🟢</span>
+                              <span style={{ fontSize: 18 }}>🟢</span>
                               <div>
-                                <div style={{fontWeight: "700", color: "#16a34a"}}>INSIDE</div>
-                                <div style={{fontSize: 14, color: "#16a34a"}}>⏳ {formatDuration(emp.current_session_minutes)}</div>
+                                <div style={{ fontWeight: "700", color: "#16a34a" }}>INSIDE</div>
+                                <div style={{ fontSize: 14, color: "#16a34a" }}>⏳ {formatDuration(emp.current_session_minutes)}</div>
                               </div>
                             </div>
                           ) : (
                             <div style={styles.currentSessionOutside}>
-                              <span style={{fontSize: 18}}>🔴</span>
+                              <span style={{ fontSize: 18 }}>🔴</span>
                               <div>
-                                <div style={{fontWeight: "700", color: "#dc2626"}}>OUTSIDE</div>
-                                <div style={{fontSize: 14, color: "#dc2626"}}>⏳ {formatDuration(emp.current_session_minutes)}</div>
+                                <div style={{ fontWeight: "700", color: "#dc2626" }}>OUTSIDE</div>
+                                <div style={{ fontSize: 14, color: "#dc2626" }}>⏳ {formatDuration(emp.current_session_minutes)}</div>
                               </div>
                             </div>
-                          )}
-                        </td>
-                        <td style={styles.td}>
-                          <span style={styles.insideTimeBadge}>🏭 {formatDuration(emp.today_inside_minutes)}</span>
-                        </td>
-                        <td style={styles.td}>
-                          <span style={styles.outsideTimeBadge}>🚪 {formatDuration(emp.today_outside_minutes)}</span>
-                        </td>
-                        <td style={styles.td}>
-                          {emp.last_sessions.length > 0 ? (
-                            <div style={{display: "flex", flexDirection: "column", gap: 6}}>
-                              {emp.last_sessions.map((session, idx) => (
-                                <div key={idx} style={styles.sessionCard}>
-                                  <div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
-                                    <span style={{color: "#16a34a", fontWeight: "600", fontSize: 13}}>
-                                      IN {new Date(session.in_time).toLocaleTimeString()}
-                                    </span>
-                                    <span style={{color: "#9ca3af", fontSize: 12}}>→</span>
-                                    <span style={{color: "#dc2626", fontWeight: "600", fontSize: 13}}>
-                                      OUT {new Date(session.out_time).toLocaleTimeString()}
-                                    </span>
-                                  </div>
-                                  <div style={{textAlign: "center", fontSize: 12, color: "#6b7280", marginTop: 2}}>
-                                    Duration: <strong>{formatDuration(session.duration_minutes)}</strong>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
+                          )
+                        ) : (
+                          emp.missing_out ? (
+                            <div style={styles.wentHomeBadge}>⚠️ No OUT recorded</div>
+                          ) : emp.current_status === "inside" ? (
+                            <div style={styles.wentHomeBadge}>⚠️ No OUT recorded</div>
                           ) : (
-                            <span style={{color: "#9ca3af", fontSize: 13}}>No completed sessions today</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                            <div style={styles.insideTimeBadge}>
+                              🔴 Left at {emp.last_out_time ? new Date(emp.last_out_time).toLocaleTimeString() : "—"}
+                            </div>
+                          )
+                        )}
+                      </td>
+                      <td style={styles.td}><span style={styles.insideTimeBadge}>🏭 {formatDuration(emp.today_inside_minutes)}</span></td>
+                      <td style={styles.td}><span style={styles.outsideTimeBadge}>🚪 {formatDuration(emp.today_outside_minutes)}</span></td>
+                      <td style={styles.td}>
+                        {emp.last_sessions && emp.last_sessions.length > 0 ? (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                            {emp.last_sessions.map((session, idx) => (
+                              <div key={idx} style={styles.sessionCard}>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                  <span style={{ color: "#16a34a", fontWeight: "600", fontSize: 13 }}>IN {new Date(session.in_time).toLocaleTimeString()}</span>
+                                  <span style={{ color: "#9ca3af", fontSize: 12 }}>→</span>
+                                  <span style={{ color: "#dc2626", fontWeight: "600", fontSize: 13 }}>OUT {new Date(session.out_time).toLocaleTimeString()}</span>
+                                </div>
+                                <div style={{ textAlign: "center", fontSize: 12, color: "#6b7280", marginTop: 2 }}>
+                                  Duration: <strong>{formatDuration(session.duration_minutes)}</strong>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <span style={{ color: "#9ca3af", fontSize: 13 }}>No completed sessions</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         )}
@@ -605,16 +442,15 @@ export default function AdminPage() {
         {/* REPORTS TAB */}
         {activeTab === "reports" && (
           <div>
-            {/* Date Filter */}
             <div style={styles.card}>
               <h2 style={styles.cardTitle}>📅 Date Range Filter</h2>
-              <div style={{display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center"}}>
+              <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
                 <div>
-                  <label style={{fontSize: 13, color: "#6b7280", display: "block", marginBottom: 4}}>Start Date</label>
+                  <label style={{ fontSize: 13, color: "#6b7280", display: "block", marginBottom: 4 }}>Start Date</label>
                   <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} style={styles.input} />
                 </div>
                 <div>
-                  <label style={{fontSize: 13, color: "#6b7280", display: "block", marginBottom: 4}}>End Date</label>
+                  <label style={{ fontSize: 13, color: "#6b7280", display: "block", marginBottom: 4 }}>End Date</label>
                   <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} style={styles.input} />
                 </div>
                 <button onClick={() => { setStartDate(""); setEndDate(""); }} style={styles.cancelButton}>Reset</button>
@@ -623,7 +459,6 @@ export default function AdminPage() {
               </div>
             </div>
 
-            {/* Summary Table */}
             <div style={styles.card}>
               <h2 style={styles.cardTitle}>📈 Employee Summary Report</h2>
               <div style={styles.tableWrapper}>
@@ -642,22 +477,14 @@ export default function AdminPage() {
                     {summaries.map((emp) => (
                       <tr key={emp.id} style={styles.tr}>
                         <td style={styles.td}>
-                          <div style={{fontWeight: "600"}}>{emp.full_name}</div>
-                          <div style={{fontSize: "12px", color: "#6b7280"}}>{emp.employee_no} • {emp.department || "No dept"}</div>
+                          <div style={{ fontWeight: "600" }}>{emp.full_name}</div>
+                          <div style={{ fontSize: "12px", color: "#6b7280" }}>{emp.employee_no} • {emp.department || "No dept"}</div>
                         </td>
-                        <td style={styles.td}>
-                          <span style={styles.daysPresentBadge}>{emp.days_present} days</span>
-                        </td>
+                        <td style={styles.td}><span style={styles.daysPresentBadge}>{emp.days_present} days</span></td>
                         <td style={styles.td}>{emp.total_scans}</td>
-                        <td style={styles.td}>
-                          <span style={{color: "#16a34a", fontWeight: "600"}}>{emp.total_in_scans}</span>
-                        </td>
-                        <td style={styles.td}>
-                          <span style={{color: "#dc2626", fontWeight: "600"}}>{emp.total_out_scans}</span>
-                        </td>
-                        <td style={styles.td}>
-                          <span style={styles.insideTimeBadge}>🏭 {emp.total_inside_formatted}</span>
-                        </td>
+                        <td style={styles.td}><span style={{ color: "#16a34a", fontWeight: "600" }}>{emp.total_in_scans}</span></td>
+                        <td style={styles.td}><span style={{ color: "#dc2626", fontWeight: "600" }}>{emp.total_out_scans}</span></td>
+                        <td style={styles.td}><span style={styles.insideTimeBadge}>🏭 {emp.total_inside_formatted}</span></td>
                       </tr>
                     ))}
                   </tbody>
@@ -701,23 +528,19 @@ export default function AdminPage() {
                   </thead>
                   <tbody>
                     {filteredAndSortedEmployees.map((emp) => (
-                      <tr key={emp.id} style={{...styles.tr, opacity: emp.active ? 1 : 0.5}}>
+                      <tr key={emp.id} style={{ ...styles.tr, opacity: emp.active ? 1 : 0.5 }}>
                         <td style={styles.td}>{emp.employee_no}</td>
-                        <td style={{...styles.td, fontWeight: "600"}}>{emp.full_name}</td>
+                        <td style={{ ...styles.td, fontWeight: "600" }}>{emp.full_name}</td>
                         <td style={styles.td}>{emp.department || "-"}</td>
                         <td style={styles.td}>{emp.position || "-"}</td>
                         <td style={styles.td}>
-                          <span style={emp.active ? styles.badgeInside : styles.badgeOutside}>
-                            {emp.active ? "Active" : "Inactive"}
-                          </span>
+                          <span style={emp.active ? styles.badgeInside : styles.badgeOutside}>{emp.active ? "Active" : "Inactive"}</span>
                         </td>
                         <td style={styles.td}>
-                          <div style={{display: "flex", gap: 6, flexWrap: "wrap"}}>
+                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                             <button onClick={() => openEditModal(emp)} style={styles.editButton}>✏️ Edit</button>
                             <button onClick={() => handleGenerateQR(emp.id)} style={styles.smallButton}>📱 QR</button>
-                            {emp.active && (
-                              <button onClick={() => handleDeleteEmployee(emp)} style={styles.deleteButton}>🗑️</button>
-                            )}
+                            {emp.active && <button onClick={() => handleDeleteEmployee(emp)} style={styles.deleteButton}>🗑️</button>}
                           </div>
                         </td>
                       </tr>
@@ -732,19 +555,16 @@ export default function AdminPage() {
         {/* LOGS TAB */}
         {activeTab === "logs" && (
           <div style={styles.card}>
-            <div style={{display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12}}>
-              <h2 style={{margin: 0, fontSize: 18, fontWeight: 700, color: "#1e293b"}}>📜 Attendance Logs ({filteredLogs.length})</h2>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
+              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#1e293b" }}>📜 Attendance Logs ({filteredLogs.length})</h2>
               <button onClick={handleExportCSV} style={styles.exportButton}>📥 Export CSV</button>
             </div>
-            
-            {/* Date Filter for Logs */}
-            <div style={{display: "flex", gap: 16, marginBottom: 20, flexWrap: "wrap", alignItems: "center"}}>
-              <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} style={{...styles.input, width: "auto"}} />
-              <span style={{color: "#6b7280"}}>to</span>
-              <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} style={{...styles.input, width: "auto"}} />
+            <div style={{ display: "flex", gap: 16, marginBottom: 20, flexWrap: "wrap", alignItems: "center" }}>
+              <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} style={{ ...styles.input, width: "auto" }} />
+              <span style={{ color: "#6b7280" }}>to</span>
+              <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} style={{ ...styles.input, width: "auto" }} />
               <button onClick={() => { setStartDate(""); setEndDate(""); }} style={styles.cancelButton}>Reset</button>
             </div>
-
             <div style={styles.tableWrapper}>
               <table style={styles.table}>
                 <thead>
@@ -760,13 +580,11 @@ export default function AdminPage() {
                     <tr key={log.id} style={styles.tr}>
                       <td style={styles.td}>{new Date(log.scanned_at).toLocaleString()}</td>
                       <td style={styles.td}>
-                        <div style={{fontWeight: "600"}}>{log.employees?.full_name}</div>
-                        <div style={{fontSize: "12px", color: "#6b7280"}}>{log.employees?.employee_no}</div>
+                        <div style={{ fontWeight: "600" }}>{log.employees?.full_name}</div>
+                        <div style={{ fontSize: "12px", color: "#6b7280" }}>{log.employees?.employee_no}</div>
                       </td>
                       <td style={styles.td}>
-                        <span style={log.direction === "in" ? styles.badgeIn : styles.badgeOut}>
-                          {log.direction === "in" ? "IN" : "OUT"}
-                        </span>
+                        <span style={log.direction === "in" ? styles.badgeIn : styles.badgeOut}>{log.direction === "in" ? "IN" : "OUT"}</span>
                       </td>
                       <td style={styles.td}>{log.entrance}</td>
                     </tr>
@@ -777,11 +595,11 @@ export default function AdminPage() {
           </div>
         )}
 
-{/* USERS TAB */}
+        {/* USERS TAB */}
         {activeTab === "users" && (
           <div>
             <div style={styles.card}>
-              <h2 style={styles.cardTitle}>➕ Add New User (Admin or Guard)</h2>
+              <h2 style={styles.cardTitle}>➕ Add New User (Admin, Supervisor, or Guard)</h2>
               <form onSubmit={handleAddUser} style={styles.form}>
                 <div style={styles.formRow}>
                   <input type="email" placeholder="Email Address" value={userFormData.email} onChange={(e) => setUserFormData({ ...userFormData, email: e.target.value })} style={styles.input} required />
@@ -789,7 +607,7 @@ export default function AdminPage() {
                 </div>
                 <div style={styles.formRow}>
                   <input type="text" placeholder="Full Name (Optional)" value={userFormData.full_name} onChange={(e) => setUserFormData({ ...userFormData, full_name: e.target.value })} style={styles.input} />
-<select value={userFormData.role} onChange={(e) => setUserFormData({ ...userFormData, role: e.target.value })} style={styles.input}>
+                  <select value={userFormData.role} onChange={(e) => setUserFormData({ ...userFormData, role: e.target.value })} style={styles.input}>
                     <option value="guard">Role: Guard</option>
                     <option value="supervisor">Role: Supervisor</option>
                     <option value="admin">Role: Admin</option>
@@ -815,7 +633,7 @@ export default function AdminPage() {
                   <tbody>
                     {users.map((u) => (
                       <tr key={u.id} style={styles.tr}>
-                        <td style={{...styles.td, fontWeight: "600"}}>{u.email} {u.id === user.id && <span style={{color: "#3b82f6", fontSize: 12}}>(You)</span>}</td>
+                        <td style={{ ...styles.td, fontWeight: "600" }}>{u.email} {u.id === user.id && <span style={{ color: "#3b82f6", fontSize: 12 }}>(You)</span>}</td>
                         <td style={styles.td}>{u.full_name || "-"}</td>
                         <td style={styles.td}>
                           <span style={u.role === "admin" ? styles.badgeInside : u.role === "supervisor" ? styles.daysPresentBadge : styles.badgeOutside}>
@@ -841,16 +659,14 @@ export default function AdminPage() {
         {activeTab === "settings" && (
           <div style={styles.card}>
             <h2 style={styles.cardTitle}>⚙️ Settings & Maintenance</h2>
-            
-            {/* Archive Section */}
-            <div style={{padding: 20, background: "#fef3c7", borderRadius: 8, border: "1px solid #fbbf24", marginBottom: 20}}>
-              <h3 style={{margin: "0 0 10px 0", color: "#92400e"}}>🗑️ Archive Old Logs</h3>
-              <p style={{margin: "0 0 15px 0", fontSize: 14, color: "#92400e"}}>
+            <div style={{ padding: 20, background: "#fef3c7", borderRadius: 8, border: "1px solid #fbbf24", marginBottom: 20 }}>
+              <h3 style={{ margin: "0 0 10px 0", color: "#92400e" }}>🗑️ Archive Old Logs</h3>
+              <p style={{ margin: "0 0 15px 0", fontSize: 14, color: "#92400e" }}>
                 Delete attendance logs older than a specified number of months to save database space.
               </p>
-              <div style={{display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap"}}>
-                <label style={{fontSize: 14, color: "#92400e"}}>Keep logs for the last</label>
-                <select value={archiveMonths} onChange={(e) => setArchiveMonths(Number(e.target.value))} style={{...styles.input, width: "auto"}}>
+              <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+                <label style={{ fontSize: 14, color: "#92400e" }}>Keep logs for the last</label>
+                <select value={archiveMonths} onChange={(e) => setArchiveMonths(Number(e.target.value))} style={{ ...styles.input, width: "auto" }}>
                   <option value={1}>1 month</option>
                   <option value={3}>3 months</option>
                   <option value={6}>6 months</option>
@@ -860,11 +676,9 @@ export default function AdminPage() {
                 <button onClick={handleArchive} style={styles.archiveButton}>🗑️ Delete Old Logs</button>
               </div>
             </div>
-
-            {/* Info Section */}
-            <div style={{padding: 20, background: "#f0f9ff", borderRadius: 8, border: "1px solid #bae6fd"}}>
-              <h3 style={{margin: "0 0 10px 0", color: "#0369a1"}}>ℹ️ System Information</h3>
-              <ul style={{margin: 0, paddingLeft: 20, fontSize: 14, color: "#0369a1"}}>
+            <div style={{ padding: 20, background: "#f0f9ff", borderRadius: 8, border: "1px solid #bae6fd" }}>
+              <h3 style={{ margin: "0 0 10px 0", color: "#0369a1" }}>ℹ️ System Information</h3>
+              <ul style={{ margin: 0, paddingLeft: 20, fontSize: 14, color: "#0369a1" }}>
                 <li>Total Employees: {employees.length}</li>
                 <li>Total Logs: {logs.length}</li>
                 <li>Auto-refresh: Every 30 seconds</li>
@@ -880,16 +694,16 @@ export default function AdminPage() {
         <div style={styles.modalOverlay} onClick={() => setEditModal(null)}>
           <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
             <h3 style={{ margin: "0 0 20px 0", fontSize: 18 }}>✏️ Edit Employee</h3>
-            <form onSubmit={handleUpdateEmployee} style={{display: "flex", flexDirection: "column", gap: 12}}>
-              <input type="text" placeholder="Employee No" value={editFormData.employee_no} onChange={(e) => setEditFormData({...editFormData, employee_no: e.target.value})} style={styles.input} required />
-              <input type="text" placeholder="Full Name" value={editFormData.full_name} onChange={(e) => setEditFormData({...editFormData, full_name: e.target.value})} style={styles.input} required />
-              <input type="text" placeholder="Department" value={editFormData.department} onChange={(e) => setEditFormData({...editFormData, department: e.target.value})} style={styles.input} />
-              <input type="text" placeholder="Position" value={editFormData.position} onChange={(e) => setEditFormData({...editFormData, position: e.target.value})} style={styles.input} />
-              <div style={{display: "flex", alignItems: "center", gap: 8}}>
-                <input type="checkbox" checked={editFormData.active} onChange={(e) => setEditFormData({...editFormData, active: e.target.checked})} style={{width: 18, height: 18}} />
+            <form onSubmit={handleUpdateEmployee} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <input type="text" placeholder="Employee No" value={editFormData.employee_no} onChange={(e) => setEditFormData({ ...editFormData, employee_no: e.target.value })} style={styles.input} required />
+              <input type="text" placeholder="Full Name" value={editFormData.full_name} onChange={(e) => setEditFormData({ ...editFormData, full_name: e.target.value })} style={styles.input} required />
+              <input type="text" placeholder="Department" value={editFormData.department} onChange={(e) => setEditFormData({ ...editFormData, department: e.target.value })} style={styles.input} />
+              <input type="text" placeholder="Position" value={editFormData.position} onChange={(e) => setEditFormData({ ...editFormData, position: e.target.value })} style={styles.input} />
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <input type="checkbox" checked={editFormData.active} onChange={(e) => setEditFormData({ ...editFormData, active: e.target.checked })} style={{ width: 18, height: 18 }} />
                 <span>Active</span>
               </div>
-              <div style={{display: "flex", gap: 12, marginTop: 10}}>
+              <div style={{ display: "flex", gap: 12, marginTop: 10 }}>
                 <button type="submit" style={styles.primaryButton}>Save Changes</button>
                 <button type="button" onClick={() => setEditModal(null)} style={styles.cancelButton}>Cancel</button>
               </div>
@@ -906,9 +720,7 @@ export default function AdminPage() {
             <div style={{ display: "flex", justifyContent: "center", marginBottom: 20, padding: 20, background: "white", borderRadius: 8 }}>
               <QRCodeSVG value={qrModal.qrContent} size={256} />
             </div>
-            <p style={{ textAlign: "center", fontSize: 12, color: "#6b7280", wordBreak: "break-all", marginBottom: 20 }}>
-              {qrModal.qrContent}
-            </p>
+            <p style={{ textAlign: "center", fontSize: 12, color: "#6b7280", wordBreak: "break-all", marginBottom: 20 }}>{qrModal.qrContent}</p>
             <button onClick={() => setQrModal(null)} style={styles.primaryButton}>Close</button>
           </div>
         </div>
@@ -952,6 +764,7 @@ const styles = {
   daysPresentBadge: { padding: "4px 10px", borderRadius: 20, fontSize: 12, fontWeight: 700, background: "#e0e7ff", color: "#3730a3" },
   insideTimeBadge: { display: "inline-block", padding: "6px 12px", background: "#dcfce7", color: "#166534", borderRadius: 6, fontWeight: "700", fontSize: 14 },
   outsideTimeBadge: { display: "inline-block", padding: "6px 12px", background: "#fee2e2", color: "#991b1b", borderRadius: 6, fontWeight: "700", fontSize: 14 },
+  wentHomeBadge: { display: "inline-block", padding: "6px 12px", background: "#fef3c7", color: "#92400e", borderRadius: 6, fontWeight: 700, fontSize: 14 },
   currentSessionInside: { display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "#f0fdf4", borderRadius: 8, border: "1px solid #bbf7d0" },
   currentSessionOutside: { display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "#fef2f2", borderRadius: 8, border: "1px solid #fecaca" },
   sessionCard: { padding: "8px 12px", background: "#f8fafc", borderRadius: 6, border: "1px solid #e2e8f0" },
@@ -959,7 +772,7 @@ const styles = {
   formRow: { display: "flex", gap: 16, flexWrap: "wrap" },
   input: { flex: 1, padding: 12, border: "1px solid #d1d5db", borderRadius: 6, fontSize: 14, minWidth: 200 },
   primaryButton: { padding: "12px 24px", background: "#3b82f6", color: "white", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: 700, fontSize: 15 },
-  cancelButton: { padding: "12px 24px", background: "#6b7280", color: "white", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: 700, fontSize: 15 },
+  cancelButton: { padding: "10px 20px", background: "#6b7280", color: "white", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: 700, fontSize: 14 },
   smallButton: { padding: "6px 12px", background: "#3b82f6", color: "white", border: "none", borderRadius: 4, cursor: "pointer", fontSize: 12, fontWeight: 600 },
   editButton: { padding: "6px 12px", background: "#f59e0b", color: "white", border: "none", borderRadius: 4, cursor: "pointer", fontSize: 12, fontWeight: 600 },
   deleteButton: { padding: "6px 12px", background: "#ef4444", color: "white", border: "none", borderRadius: 4, cursor: "pointer", fontSize: 12, fontWeight: 600 },
