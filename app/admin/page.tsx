@@ -41,6 +41,7 @@ export default function AdminPage() {
   // Archive state
   const [archiveMonths, setArchiveMonths] = useState(6);
   const [users, setUsers] = useState([]);
+  const [durationDate, setDurationDate] = useState("");
   const [userFormData, setUserFormData] = useState({ email: "", password: "", full_name: "", role: "guard" });
 
   // Auto-refresh state

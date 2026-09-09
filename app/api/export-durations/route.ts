@@ -4,67 +4,86 @@ import { getSupabaseAdmin } from "../../../lib/supabaseAdmin";
 
 export const dynamic = "force-dynamic";
 
-// Helper function to format date in UTC+8
 function formatDateTimeUTC8(dateString) {
   if (!dateString) return "N/A";
-  const date = new Date(dateString);
-  return date.toLocaleString("en-US", {
-    timeZone: "Asia/Manila", // UTC+8
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
+  return new Date(dateString).toLocaleString("en-US", {
+    timeZone: "Asia/Manila",
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
     hour12: true,
   });
 }
 
-function formatTimeUTC8(dateString) {
-  if (!dateString) return "N/A";
-  const date = new Date(dateString);
-  return date.toLocaleString("en-US", {
-    timeZone: "Asia/Manila",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  });
+function processDayLogs(logs, isToday, now, dayEndISO) {
+  let insideMinutes = 0;
+  let outsideMinutes = 0;
+  let pendingIn = null;
+  let pendingOut = null;
+  let missingOut = false;
+
+  for (const log of logs) {
+    const t = new Date(log.scanned_at);
+    if (log.direction === "in") {
+      // Count the FULL outside gap (no threshold) since they came back
+      if (pendingOut) {
+        outsideMinutes += Math.round((t.getTime() - pendingOut.getTime()) / 60000);
+        pendingOut = null;
+      }
+      pendingIn = t;
+    } else {
+      if (pendingIn) {
+        insideMinutes += Math.round((t.getTime() - pendingIn.getTime()) / 60000);
+        pendingIn = null;
+      }
+      pendingOut = t;
+    }
+  }
+
+  if (pendingIn && !pendingOut) {
+    if (isToday) {
+      insideMinutes += Math.round((now.getTime() - pendingIn.getTime()) / 60000);
+    } else {
+      insideMinutes += Math.round((new Date(dayEndISO).getTime() - pendingIn.getTime()) / 60000);
+      missingOut = true;
+    }
+  }
+  // Trailing outside (went home) is not counted
+
+  return { insideMinutes, outsideMinutes, missingOut };
 }
 
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const period = searchParams.get("period") || "today";
+    const dateParam = searchParams.get("date");
 
     const supabase = getSupabaseAdmin();
-
-    // Calculate date range based on period (using UTC+8)
     const now = new Date();
-    let startDate = new Date();
-    let periodLabel = "";
+    const todayStr = now.toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
 
-    if (period === "today") {
-      // Get today's start in UTC+8
-      const todayStr = now.toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
-      startDate = new Date(`${todayStr}T00:00:00+08:00`);
-      periodLabel = "Today";
+    let rangeStart;
+    let periodLabel;
+
+    if (dateParam) {
+      rangeStart = new Date(`${dateParam}T00:00:00+08:00`);
+      periodLabel = `Date: ${dateParam}`;
     } else if (period === "week") {
-      const todayStr = now.toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
       const todayDate = new Date(`${todayStr}T00:00:00+08:00`);
-      const dayOfWeek = todayDate.getDay();
-      todayDate.setDate(todayDate.getDate() - dayOfWeek);
-      startDate = todayDate;
+      todayDate.setDate(todayDate.getDate() - todayDate.getDay());
+      rangeStart = todayDate;
       periodLabel = "This Week";
     } else if (period === "month") {
-      const todayStr = now.toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
-      const yearMonth = todayStr.substring(0, 7);
-      startDate = new Date(`${yearMonth}-01T00:00:00+08:00`);
+      rangeStart = new Date(`${todayStr.substring(0, 7)}-01T00:00:00+08:00`);
       periodLabel = "This Month";
+    } else {
+      rangeStart = new Date(`${todayStr}T00:00:00+08:00`);
+      periodLabel = "Today";
     }
 
-    const startDateISO = startDate.toISOString();
+    const rangeStartISO = rangeStart.toISOString();
+    const singleDay = dateParam ? dateParam : (period === "today" ? todayStr : null);
 
-    // Get all active employees
     const { data: employees } = await supabase
       .from("employees")
       .select("*")
@@ -73,21 +92,18 @@ export async function GET(request) {
 
     const summaries = await Promise.all(
       employees.map(async (emp) => {
-        const { data: logs } = await supabase
+        let query = supabase
           .from("attendance_logs")
           .select("direction, scanned_at")
           .eq("employee_id", emp.id)
-          .gte("scanned_at", startDateISO)
+          .gte("scanned_at", rangeStartISO)
           .order("scanned_at", { ascending: true });
 
-        // Get the very last log
-        const { data: lastLogAll } = await supabase
-          .from("attendance_logs")
-          .select("direction, scanned_at")
-          .eq("employee_id", emp.id)
-          .order("scanned_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
+        if (singleDay) {
+          query = query.lte("scanned_at", `${singleDay}T23:59:59+08:00`);
+        }
+
+        const { data: logs } = await query;
 
         if (!logs || logs.length === 0) {
           return {
@@ -96,73 +112,64 @@ export async function GET(request) {
             department: emp.department || "",
             inside_formatted: "0h 0m",
             outside_formatted: "0h 0m",
-            last_log_direction: lastLogAll ? (lastLogAll.direction === "in" ? "IN" : "OUT") : "N/A",
-            last_log_time: lastLogAll ? formatDateTimeUTC8(lastLogAll.scanned_at) : "No logs",
-            total_scans: 0,
+            days_present: 0,
+            last_log_direction: "N/A",
+            last_log_time: "No logs",
+            missing_out_days: 0,
           };
         }
 
-        let insideMinutes = 0;
-        let outsideMinutes = 0;
-        let currentIn = null;
-        let currentOut = null;
-
+        // Group logs by day (UTC+8) and process each day
+        const byDay = {};
         for (const log of logs) {
-          if (log.direction === "in") {
-            currentIn = new Date(log.scanned_at);
-            if (currentOut) {
-              const outsideMs = currentIn.getTime() - currentOut.getTime();
-              outsideMinutes += Math.round(outsideMs / 60000);
-            }
-            currentOut = null;
-          } else if (log.direction === "out") {
-            currentOut = new Date(log.scanned_at);
-            if (currentIn) {
-              const insideMs = currentOut.getTime() - currentIn.getTime();
-              insideMinutes += Math.round(insideMs / 60000);
-            }
-            currentIn = null;
-          }
+          const dayKey = new Date(log.scanned_at).toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
+          if (!byDay[dayKey]) byDay[dayKey] = [];
+          byDay[dayKey].push(log);
         }
 
-        if (currentIn && !currentOut) {
-          const nowTime = new Date();
-          insideMinutes += Math.round((nowTime.getTime() - currentIn.getTime()) / 60000);
+        let totalInside = 0;
+        let totalOutside = 0;
+        let missingOutDays = 0;
+
+        for (const dayKey of Object.keys(byDay).sort()) {
+          const isToday = dayKey === todayStr;
+          const dayEnd = `${dayKey}T23:59:59+08:00`;
+          const res = processDayLogs(byDay[dayKey], isToday, now, dayEnd);
+          totalInside += res.insideMinutes;
+          totalOutside += res.outsideMinutes;
+          if (res.missingOut) missingOutDays++;
         }
 
-        if (currentOut && !currentIn) {
-          const nowTime = new Date();
-          outsideMinutes += Math.round((nowTime.getTime() - currentOut.getTime()) / 60000);
-        }
-
-        const insideHours = Math.floor(insideMinutes / 60);
-        const insideMins = insideMinutes % 60;
-        const outsideHours = Math.floor(outsideMinutes / 60);
-        const outsideMins = outsideMinutes % 60;
+        const lastLog = logs[logs.length - 1];
+        const ih = Math.floor(totalInside / 60);
+        const im = totalInside % 60;
+        const oh = Math.floor(totalOutside / 60);
+        const om = totalOutside % 60;
 
         return {
           employee_no: emp.employee_no,
           full_name: emp.full_name,
           department: emp.department || "",
-          inside_formatted: `${insideHours}h ${insideMins}m`,
-          outside_formatted: `${outsideHours}h ${outsideMins}m`,
-          last_log_direction: lastLogAll ? (lastLogAll.direction === "in" ? "IN" : "OUT") : "N/A",
-          last_log_time: lastLogAll ? formatDateTimeUTC8(lastLogAll.scanned_at) : "No logs",
-          total_scans: logs.length,
+          inside_formatted: `${ih}h ${im}m`,
+          outside_formatted: `${oh}h ${om}m`,
+          days_present: Object.keys(byDay).length,
+          last_log_direction: lastLog.direction === "in" ? "IN" : "OUT",
+          last_log_time: formatDateTimeUTC8(lastLog.scanned_at),
+          missing_out_days: missingOutDays,
         };
       })
     );
 
-    // Generate CSV
     const headers = [
       "Employee No",
       "Employee Name",
       "Department",
       `Total Inside (${periodLabel})`,
       `Total Outside (${periodLabel})`,
+      "Days Present",
       "Last Log Direction",
       "Last Log Time (UTC+8)",
-      "Total Scans",
+      "Missing OUT Days",
     ];
 
     const rows = summaries.map(s => [
@@ -171,25 +178,26 @@ export async function GET(request) {
       s.department,
       s.inside_formatted,
       s.outside_formatted,
+      s.days_present,
       s.last_log_direction,
       s.last_log_time,
-      s.total_scans,
+      s.missing_out_days,
     ]);
-
-    const nowFormatted = formatDateTimeUTC8(now.toISOString());
 
     const csvContent = [
       `Duration Summary Report - ${periodLabel}`,
-      `Generated: ${nowFormatted} (UTC+8)`,
+      `Generated: ${formatDateTimeUTC8(now.toISOString())} (UTC+8)`,
       "",
       headers.join(","),
       ...rows.map(row => row.map(cell => `"${cell}"`).join(","))
     ].join("\n");
 
+    const fileTag = dateParam ? dateParam : period;
+
     return new NextResponse(csvContent, {
       headers: {
         "Content-Type": "text/csv",
-        "Content-Disposition": `attachment; filename="duration_summary_${period}_${new Date().toISOString().split('T')[0]}.csv"`,
+        "Content-Disposition": `attachment; filename="duration_summary_${fileTag}.csv"`,
       },
     });
   } catch (error) {
