@@ -4,6 +4,9 @@ import { getSupabaseAdmin } from "../../../lib/supabaseAdmin";
 
 export const dynamic = "force-dynamic";
 
+// Threshold: If OUT for more than this many minutes, they went home
+const WENT_HOME_THRESHOLD_MINUTES = 120; // 2 hours
+
 export async function GET() {
   try {
     const supabase = getSupabaseAdmin();
@@ -17,12 +20,21 @@ export async function GET() {
       return NextResponse.json({ ok: false, error: empError.message }, { status: 500 });
     }
 
+    // Get today's date in UTC+8
+    const now = new Date();
+    const todayStr = now.toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
+    const todayStart = new Date(`${todayStr}T00:00:00+08:00`).toISOString();
+    const todayEnd = new Date(`${todayStr}T23:59:59+08:00`).toISOString();
+
     const employeesWithDurations = await Promise.all(
       employees.map(async (emp) => {
+        // Get today's logs only
         const { data: logs } = await supabase
           .from("attendance_logs")
           .select("direction, scanned_at")
           .eq("employee_id", emp.id)
+          .gte("scanned_at", todayStart)
+          .lte("scanned_at", todayEnd)
           .order("scanned_at", { ascending: true });
 
         if (!logs || logs.length === 0) {
@@ -34,48 +46,58 @@ export async function GET() {
             today_inside_minutes: 0,
             today_outside_minutes: 0,
             last_sessions: [],
+            went_home: false,
           };
         }
 
+        // NEW LOGIC: Calculate inside/outside with "went home" detection
         let insideSessions = [];
-        let outsideSessions = [];
+        let totalInsideMinutes = 0;
+        let totalOutsideMinutes = 0;
         let currentIn = null;
         let currentOut = null;
-        let todayInsideTotal = 0;
-        let todayOutsideTotal = 0;
-        const today = new Date().toDateString();
+        let wentHome = false;
+        let workDayEnded = false;
 
-        for (const log of logs) {
-          const logDate = new Date(log.scanned_at).toDateString();
-          const isToday = logDate === today;
+        for (let i = 0; i < logs.length; i++) {
+          const log = logs[i];
+          const logTime = new Date(log.scanned_at);
+
+          if (workDayEnded) break; // Stop counting after they went home
 
           if (log.direction === "in") {
-            currentIn = new Date(log.scanned_at);
-            
+            currentIn = logTime;
+
             // If there was a previous OUT, calculate outside time
-            if (currentOut && isToday) {
-              const outsideMs = currentIn.getTime() - currentOut.getTime();
+            if (currentOut) {
+              const outsideMs = logTime.getTime() - currentOut.getTime();
               const outsideMinutes = Math.round(outsideMs / 60000);
-              todayOutsideTotal += outsideMinutes;
-              outsideSessions.push({
-                out_time: currentOut.toISOString(),
-                in_time: currentIn.toISOString(),
-                duration_minutes: outsideMinutes,
-              });
+
+              // Check if this OUT period was too long (went home)
+              if (outsideMinutes >= WENT_HOME_THRESHOLD_MINUTES) {
+                // They went home! Don't count this outside time
+                // and don't count any more time after this
+                wentHome = true;
+                workDayEnded = true;
+                break;
+              } else {
+                // Short break, count it
+                totalOutsideMinutes += outsideMinutes;
+              }
             }
             currentOut = null;
 
           } else if (log.direction === "out") {
-            currentOut = new Date(log.scanned_at);
-            
+            currentOut = logTime;
+
             // If there was a previous IN, calculate inside time
-            if (currentIn && isToday) {
-              const insideMs = currentOut.getTime() - currentIn.getTime();
+            if (currentIn) {
+              const insideMs = logTime.getTime() - currentIn.getTime();
               const insideMinutes = Math.round(insideMs / 60000);
-              todayInsideTotal += insideMinutes;
+              totalInsideMinutes += insideMinutes;
               insideSessions.push({
                 in_time: currentIn.toISOString(),
-                out_time: currentOut.toISOString(),
+                out_time: logTime.toISOString(),
                 duration_minutes: insideMinutes,
               });
             }
@@ -83,26 +105,37 @@ export async function GET() {
           }
         }
 
-        // Determine current session status
+        // Determine current status
         let currentStatus = "outside";
         let currentSessionStart = null;
         let currentSessionMinutes = 0;
 
-        if (currentIn && !currentOut) {
-          // Currently INSIDE
-          currentStatus = "inside";
-          currentSessionStart = currentIn.toISOString();
-          const now = new Date();
-          currentSessionMinutes = Math.round((now.getTime() - currentIn.getTime()) / 60000);
-        } else if (currentOut) {
-          // Currently OUTSIDE
-          currentStatus = "outside";
-          currentSessionStart = currentOut.toISOString();
-          const now = new Date();
-          currentSessionMinutes = Math.round((now.getTime() - currentOut.getTime()) / 60000);
+        if (!workDayEnded) {
+          if (currentIn && !currentOut) {
+            // Currently INSIDE
+            currentStatus = "inside";
+            currentSessionStart = currentIn.toISOString();
+            const nowTime = new Date();
+            currentSessionMinutes = Math.round((nowTime.getTime() - currentIn.getTime()) / 60000);
+            totalInsideMinutes += currentSessionMinutes; // Add current session to total
+          } else if (currentOut) {
+            // Currently OUTSIDE (but haven't gone home yet)
+            currentStatus = "outside";
+            currentSessionStart = currentOut.toISOString();
+            const nowTime = new Date();
+            currentSessionMinutes = Math.round((nowTime.getTime() - currentOut.getTime()) / 60000);
+            
+            // If they've been out too long, they went home
+            if (currentSessionMinutes >= WENT_HOME_THRESHOLD_MINUTES) {
+              wentHome = true;
+              currentStatus = "outside";
+            } else {
+              totalOutsideMinutes += currentSessionMinutes;
+            }
+          }
         }
 
-        // Get last 3 inside sessions (IN→OUT pairs)
+        // Get last 3 sessions
         const lastThreeSessions = insideSessions.slice(-3).reverse();
 
         return {
@@ -110,9 +143,10 @@ export async function GET() {
           current_status: currentStatus,
           current_session_start: currentSessionStart,
           current_session_minutes: currentSessionMinutes,
-          today_inside_minutes: todayInsideTotal,
-          today_outside_minutes: todayOutsideTotal,
+          today_inside_minutes: totalInsideMinutes,
+          today_outside_minutes: totalOutsideMinutes,
           last_sessions: lastThreeSessions,
+          went_home: wentHome,
         };
       })
     );
