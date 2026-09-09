@@ -44,6 +44,8 @@ export default function Login() {
 
     if (profile.role === "admin") {
       router.push("/admin");
+    } else if (profile.role === "supervisor") {
+      router.push("/supervisor");
     } else if (profile.role === "guard") {
       router.push("/guard");
     } else {

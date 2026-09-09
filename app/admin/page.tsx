@@ -788,8 +788,9 @@ export default function AdminPage() {
                 </div>
                 <div style={styles.formRow}>
                   <input type="text" placeholder="Full Name (Optional)" value={userFormData.full_name} onChange={(e) => setUserFormData({ ...userFormData, full_name: e.target.value })} style={styles.input} />
-                  <select value={userFormData.role} onChange={(e) => setUserFormData({ ...userFormData, role: e.target.value })} style={styles.input}>
+<select value={userFormData.role} onChange={(e) => setUserFormData({ ...userFormData, role: e.target.value })} style={styles.input}>
                     <option value="guard">Role: Guard</option>
+                    <option value="supervisor">Role: Supervisor</option>
                     <option value="admin">Role: Admin</option>
                   </select>
                 </div>
@@ -816,8 +817,8 @@ export default function AdminPage() {
                         <td style={{...styles.td, fontWeight: "600"}}>{u.email} {u.id === user.id && <span style={{color: "#3b82f6", fontSize: 12}}>(You)</span>}</td>
                         <td style={styles.td}>{u.full_name || "-"}</td>
                         <td style={styles.td}>
-                          <span style={u.role === "admin" ? styles.badgeInside : styles.badgeOutside}>
-                            {u.role === "admin" ? "👑 Admin" : "🛡️ Guard"}
+                          <span style={u.role === "admin" ? styles.badgeInside : u.role === "supervisor" ? styles.daysPresentBadge : styles.badgeOutside}>
+                            {u.role === "admin" ? "👑 Admin" : u.role === "supervisor" ? "📋 Supervisor" : "🛡️ Guard"}
                           </span>
                         </td>
                         <td style={styles.td}>{new Date(u.created_at).toLocaleDateString()}</td>
