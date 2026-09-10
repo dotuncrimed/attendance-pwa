@@ -14,6 +14,28 @@ function formatDuration(minutes) {
   return `${hours}h ${mins}m`;
 }
 
+// SVG Icons
+const DashboardIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>;
+const ClockIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>;
+const ReportIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>;
+const UsersIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>;
+const LogIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>;
+const UserIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>;
+const SettingsIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>;
+const RefreshIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>;
+const LogoutIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>;
+const SearchIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>;
+const CloseIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>;
+const PlusIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>;
+const EditIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>;
+const QRIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>;
+const TrashIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>;
+const DownloadIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>;
+const ArchiveIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>;
+const HomeIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>;
+const AlertIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>;
+const CheckIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"/></svg>;
+
 export default function AdminPage() {
   const [user, setUser] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -255,55 +277,79 @@ export default function AdminPage() {
     <div style={styles.pageContainer}>
       <header style={styles.header}>
         <div style={styles.headerContent}>
-          <h1 style={styles.headerTitle}>📋 Attendance Admin</h1>
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            <span style={{ fontSize: 12, color: "#94a3b8" }}>Auto-refresh: {lastRefresh.toLocaleTimeString()}</span>
-            <button onClick={() => { loadData(); setLastRefresh(new Date()); }} style={styles.refreshButton}>🔄 Refresh</button>
-            <button onClick={handleLogout} style={styles.logoutButton}>Logout</button>
+          <div style={styles.headerTitleSection}>
+            <h1 style={styles.headerTitle}>Attendance Admin</h1>
+            <span style={styles.headerSubtitle}>Dashboard & Management</span>
+          </div>
+          <div style={styles.headerActions}>
+            <span style={styles.lastRefresh}>Auto-refresh: {lastRefresh.toLocaleTimeString()}</span>
+            <button onClick={() => { loadData(); setLastRefresh(new Date()); }} style={styles.refreshButton}>
+              <RefreshIcon /> <span>Refresh</span>
+            </button>
+            <button onClick={handleLogout} style={styles.logoutButton}>
+              <LogoutIcon /> <span>Logout</span>
+            </button>
           </div>
         </div>
       </header>
 
       <nav style={styles.nav}>
-        <button style={activeTab === "dashboard" ? styles.navButtonActive : styles.navButton} onClick={() => setActiveTab("dashboard")}>📊 Dashboard</button>
-        <button style={activeTab === "durations" ? styles.navButtonActive : styles.navButton} onClick={() => setActiveTab("durations")}>⏱️ Durations</button>
-        <button style={activeTab === "reports" ? styles.navButtonActive : styles.navButton} onClick={() => setActiveTab("reports")}>📈 Reports</button>
-        <button style={activeTab === "employees" ? styles.navButtonActive : styles.navButton} onClick={() => setActiveTab("employees")}>👥 Employees</button>
-        <button style={activeTab === "logs" ? styles.navButtonActive : styles.navButton} onClick={() => setActiveTab("logs")}>📜 Logs</button>
-        <button style={activeTab === "users" ? styles.navButtonActive : styles.navButton} onClick={() => setActiveTab("users")}>👤 Users</button>
-        <button style={activeTab === "settings" ? styles.navButtonActive : styles.navButton} onClick={() => setActiveTab("settings")}>⚙️ Settings</button>
+        <button style={activeTab === "dashboard" ? styles.navButtonActive : styles.navButton} onClick={() => setActiveTab("dashboard")}>
+          <DashboardIcon /> <span>Dashboard</span>
+        </button>
+        <button style={activeTab === "durations" ? styles.navButtonActive : styles.navButton} onClick={() => setActiveTab("durations")}>
+          <ClockIcon /> <span>Durations</span>
+        </button>
+        <button style={activeTab === "reports" ? styles.navButtonActive : styles.navButton} onClick={() => setActiveTab("reports")}>
+          <ReportIcon /> <span>Reports</span>
+        </button>
+        <button style={activeTab === "employees" ? styles.navButtonActive : styles.navButton} onClick={() => setActiveTab("employees")}>
+          <UsersIcon /> <span>Employees</span>
+        </button>
+        <button style={activeTab === "logs" ? styles.navButtonActive : styles.navButton} onClick={() => setActiveTab("logs")}>
+          <LogIcon /> <span>Logs</span>
+        </button>
+        <button style={activeTab === "users" ? styles.navButtonActive : styles.navButton} onClick={() => setActiveTab("users")}>
+          <UserIcon /> <span>Users</span>
+        </button>
+        <button style={activeTab === "settings" ? styles.navButtonActive : styles.navButton} onClick={() => setActiveTab("settings")}>
+          <SettingsIcon /> <span>Settings</span>
+        </button>
       </nav>
 
       <main style={styles.mainContent}>
         <div style={styles.searchContainer}>
-          <input type="text" placeholder="🔍 Search by name, employee no, department, or position..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={styles.searchInput} />
-          {searchTerm && <button onClick={() => setSearchTerm("")} style={styles.clearSearchButton}>✕ Clear</button>}
+          <div style={styles.searchInputWrapper}>
+            <SearchIcon />
+            <input type="text" placeholder="Search by name, employee no, department, or position..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={styles.searchInput} />
+          </div>
+          {searchTerm && <button onClick={() => setSearchTerm("")} style={styles.clearSearchButton}><CloseIcon /> Clear</button>}
         </div>
 
         {/* DASHBOARD TAB */}
         {activeTab === "dashboard" && (
           <div>
             <div style={styles.statsGrid}>
-              <div style={{ ...styles.statCard, borderLeft: "4px solid #3b82f6" }}>
+              <div style={{ ...styles.statCard, borderTop: "3px solid #3b82f6" }}>
                 <p style={styles.statLabel}>Total Employees</p>
                 <p style={styles.statValue}>{employees.length}</p>
               </div>
-              <div style={{ ...styles.statCard, borderLeft: "4px solid #22c55e" }}>
+              <div style={{ ...styles.statCard, borderTop: "3px solid #16a34a" }}>
                 <p style={styles.statLabel}>Currently Inside</p>
-                <p style={{ ...styles.statValue, color: "#22c55e" }}>{insideCount}</p>
+                <p style={{ ...styles.statValue, color: "#16a34a" }}>{insideCount}</p>
               </div>
-              <div style={{ ...styles.statCard, borderLeft: "4px solid #ef4444" }}>
+              <div style={{ ...styles.statCard, borderTop: "3px solid #dc2626" }}>
                 <p style={styles.statLabel}>Currently Outside</p>
-                <p style={{ ...styles.statValue, color: "#ef4444" }}>{outsideCount}</p>
+                <p style={{ ...styles.statValue, color: "#dc2626" }}>{outsideCount}</p>
               </div>
-              <div style={{ ...styles.statCard, borderLeft: "4px solid #8b5cf6" }}>
+              <div style={{ ...styles.statCard, borderTop: "3px solid #7c3aed" }}>
                 <p style={styles.statLabel}>Today's Scans</p>
                 <p style={styles.statValue}>{todayLogs.length}</p>
               </div>
             </div>
 
             <div style={styles.card}>
-              <h2 style={styles.cardTitle}>🏭 Employee Status - Who's Inside?</h2>
+              <h2 style={styles.cardTitle}>Employee Status - Who's Inside?</h2>
               <div style={styles.tableWrapper}>
                 <table style={styles.table}>
                   <thead>
@@ -324,7 +370,7 @@ export default function AdminPage() {
                         <td style={styles.td}>{emp.department || "-"}</td>
                         <td style={styles.td}>
                           <span style={emp.current_status === "inside" ? styles.badgeInside : styles.badgeOutside}>
-                            {emp.current_status === "inside" ? "🟢 INSIDE" : "🔴 OUTSIDE"}
+                            {emp.current_status === "inside" ? <CheckIcon /> : <HomeIcon />} {emp.current_status === "inside" ? "INSIDE" : "OUTSIDE"}
                           </span>
                         </td>
                         <td style={styles.td}>{emp.last_scan_time ? new Date(emp.last_scan_time).toLocaleTimeString() : "Never scanned"}</td>
@@ -342,7 +388,7 @@ export default function AdminPage() {
           <div style={styles.card}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, marginBottom: 8 }}>
               <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#1e293b" }}>
-                ⏱️ Work Duration - {durationDate ? durationDate : "Today"}
+                <ClockIcon /> Work Duration - {durationDate ? durationDate : "Today"}
               </h2>
               <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
                 <input
@@ -352,7 +398,7 @@ export default function AdminPage() {
                   style={{ padding: "8px 12px", border: "1px solid #d1d5db", borderRadius: 6, fontSize: 14 }}
                 />
                 <button onClick={() => { setDurationDate(""); loadDurations(""); }} style={styles.cancelButton}>Today</button>
-                <button onClick={handleExportViewedDate} style={styles.exportButton}>📥 Export Viewed Date</button>
+                <button onClick={handleExportViewedDate} style={styles.exportButton}><DownloadIcon /> Export Viewed Date</button>
               </div>
             </div>
             <p style={{ color: "#6b7280", fontSize: 14, marginTop: 0, marginBottom: 20 }}>
@@ -379,38 +425,38 @@ export default function AdminPage() {
                       <td style={styles.td}>
                         {durationDate === "" ? (
                           emp.went_home ? (
-                            <div style={styles.wentHomeBadge}>🏠 Went Home</div>
+                            <div style={styles.wentHomeBadge}><HomeIcon /> Went Home</div>
                           ) : emp.current_status === "inside" ? (
                             <div style={styles.currentSessionInside}>
-                              <span style={{ fontSize: 18 }}>🟢</span>
+                              <CheckIcon />
                               <div>
                                 <div style={{ fontWeight: "700", color: "#16a34a" }}>INSIDE</div>
-                                <div style={{ fontSize: 14, color: "#16a34a" }}>⏳ {formatDuration(emp.current_session_minutes)}</div>
+                                <div style={{ fontSize: 14, color: "#16a34a" }}><ClockIcon /> {formatDuration(emp.current_session_minutes)}</div>
                               </div>
                             </div>
                           ) : (
                             <div style={styles.currentSessionOutside}>
-                              <span style={{ fontSize: 18 }}>🔴</span>
+                              <HomeIcon />
                               <div>
                                 <div style={{ fontWeight: "700", color: "#dc2626" }}>OUTSIDE</div>
-                                <div style={{ fontSize: 14, color: "#dc2626" }}>⏳ {formatDuration(emp.current_session_minutes)}</div>
+                                <div style={{ fontSize: 14, color: "#dc2626" }}><ClockIcon /> {formatDuration(emp.current_session_minutes)}</div>
                               </div>
                             </div>
                           )
                         ) : (
                           emp.missing_out ? (
-                            <div style={styles.wentHomeBadge}>⚠️ No OUT recorded</div>
+                            <div style={styles.wentHomeBadge}><AlertIcon /> No OUT recorded</div>
                           ) : emp.current_status === "inside" ? (
-                            <div style={styles.wentHomeBadge}>⚠️ No OUT recorded</div>
+                            <div style={styles.wentHomeBadge}><AlertIcon /> No OUT recorded</div>
                           ) : (
                             <div style={styles.insideTimeBadge}>
-                              🔴 Left at {emp.last_out_time ? new Date(emp.last_out_time).toLocaleTimeString() : "—"}
+                              <HomeIcon /> Left at {emp.last_out_time ? new Date(emp.last_out_time).toLocaleTimeString() : "—"}
                             </div>
                           )
                         )}
                       </td>
-                      <td style={styles.td}><span style={styles.insideTimeBadge}>🏭 {formatDuration(emp.today_inside_minutes)}</span></td>
-                      <td style={styles.td}><span style={styles.outsideTimeBadge}>🚪 {formatDuration(emp.today_outside_minutes)}</span></td>
+                      <td style={styles.td}><span style={styles.insideTimeBadge}><CheckIcon /> {formatDuration(emp.today_inside_minutes)}</span></td>
+                      <td style={styles.td}><span style={styles.outsideTimeBadge}><HomeIcon /> {formatDuration(emp.today_outside_minutes)}</span></td>
                       <td style={styles.td}>
                         {emp.last_sessions && emp.last_sessions.length > 0 ? (
                           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -443,7 +489,7 @@ export default function AdminPage() {
         {activeTab === "reports" && (
           <div>
             <div style={styles.card}>
-              <h2 style={styles.cardTitle}>📅 Date Range Filter</h2>
+              <h2 style={styles.cardTitle}><ReportIcon /> Date Range Filter</h2>
               <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
                 <div>
                   <label style={{ fontSize: 13, color: "#6b7280", display: "block", marginBottom: 4 }}>Start Date</label>
@@ -455,12 +501,12 @@ export default function AdminPage() {
                 </div>
                 <button onClick={() => { setStartDate(""); setEndDate(""); }} style={styles.cancelButton}>Reset</button>
                 <button onClick={loadData} style={styles.primaryButton}>Apply Filter</button>
-                <button onClick={handleExportCSV} style={styles.exportButton}>📥 Export CSV</button>
+                <button onClick={handleExportCSV} style={styles.exportButton}><DownloadIcon /> Export CSV</button>
               </div>
             </div>
 
             <div style={styles.card}>
-              <h2 style={styles.cardTitle}>📈 Employee Summary Report</h2>
+              <h2 style={styles.cardTitle}><ReportIcon /> Employee Summary Report</h2>
               <div style={styles.tableWrapper}>
                 <table style={styles.table}>
                   <thead>
@@ -484,7 +530,7 @@ export default function AdminPage() {
                         <td style={styles.td}>{emp.total_scans}</td>
                         <td style={styles.td}><span style={{ color: "#16a34a", fontWeight: "600" }}>{emp.total_in_scans}</span></td>
                         <td style={styles.td}><span style={{ color: "#dc2626", fontWeight: "600" }}>{emp.total_out_scans}</span></td>
-                        <td style={styles.td}><span style={styles.insideTimeBadge}>🏭 {emp.total_inside_formatted}</span></td>
+                        <td style={styles.td}><span style={styles.insideTimeBadge}><CheckIcon /> {emp.total_inside_formatted}</span></td>
                       </tr>
                     ))}
                   </tbody>
@@ -498,7 +544,7 @@ export default function AdminPage() {
         {activeTab === "employees" && (
           <div>
             <div style={styles.card}>
-              <h2 style={styles.cardTitle}>➕ Add New Employee</h2>
+              <h2 style={styles.cardTitle}><PlusIcon /> Add New Employee</h2>
               <form onSubmit={handleAddEmployee} style={styles.form}>
                 <div style={styles.formRow}>
                   <input type="text" placeholder="Employee No" value={formData.employee_no} onChange={(e) => setFormData({ ...formData, employee_no: e.target.value })} style={styles.input} required />
@@ -508,12 +554,12 @@ export default function AdminPage() {
                   <input type="text" placeholder="Department" value={formData.department} onChange={(e) => setFormData({ ...formData, department: e.target.value })} style={styles.input} />
                   <input type="text" placeholder="Position" value={formData.position} onChange={(e) => setFormData({ ...formData, position: e.target.value })} style={styles.input} />
                 </div>
-                <button type="submit" style={styles.primaryButton}>Add Employee</button>
+                <button type="submit" style={styles.primaryButton}><PlusIcon /> Add Employee</button>
               </form>
             </div>
 
             <div style={styles.card}>
-              <h2 style={styles.cardTitle}>👥 All Employees ({filteredAndSortedEmployees.length})</h2>
+              <h2 style={styles.cardTitle}><UsersIcon /> All Employees ({filteredAndSortedEmployees.length})</h2>
               <div style={styles.tableWrapper}>
                 <table style={styles.table}>
                   <thead>
@@ -538,9 +584,9 @@ export default function AdminPage() {
                         </td>
                         <td style={styles.td}>
                           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                            <button onClick={() => openEditModal(emp)} style={styles.editButton}>✏️ Edit</button>
-                            <button onClick={() => handleGenerateQR(emp.id)} style={styles.smallButton}>📱 QR</button>
-                            {emp.active && <button onClick={() => handleDeleteEmployee(emp)} style={styles.deleteButton}>🗑️</button>}
+                            <button onClick={() => openEditModal(emp)} style={styles.editButton}><EditIcon /> Edit</button>
+                            <button onClick={() => handleGenerateQR(emp.id)} style={styles.smallButton}><QRIcon /> QR</button>
+                            {emp.active && <button onClick={() => handleDeleteEmployee(emp)} style={styles.deleteButton}><TrashIcon /></button>}
                           </div>
                         </td>
                       </tr>
@@ -556,8 +602,8 @@ export default function AdminPage() {
         {activeTab === "logs" && (
           <div style={styles.card}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
-              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#1e293b" }}>📜 Attendance Logs ({filteredLogs.length})</h2>
-              <button onClick={handleExportCSV} style={styles.exportButton}>📥 Export CSV</button>
+              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#1e293b" }}><LogIcon /> Attendance Logs ({filteredLogs.length})</h2>
+              <button onClick={handleExportCSV} style={styles.exportButton}><DownloadIcon /> Export CSV</button>
             </div>
             <div style={{ display: "flex", gap: 16, marginBottom: 20, flexWrap: "wrap", alignItems: "center" }}>
               <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} style={{ ...styles.input, width: "auto" }} />
@@ -584,7 +630,7 @@ export default function AdminPage() {
                         <div style={{ fontSize: "12px", color: "#6b7280" }}>{log.employees?.employee_no}</div>
                       </td>
                       <td style={styles.td}>
-                        <span style={log.direction === "in" ? styles.badgeIn : styles.badgeOut}>{log.direction === "in" ? "IN" : "OUT"}</span>
+                        <span style={log.direction === "in" ? styles.badgeIn : styles.badgeOut}>{log.direction === "in" ? <CheckIcon /> : <HomeIcon />} {log.direction === "in" ? "IN" : "OUT"}</span>
                       </td>
                       <td style={styles.td}>{log.entrance}</td>
                     </tr>
@@ -599,7 +645,7 @@ export default function AdminPage() {
         {activeTab === "users" && (
           <div>
             <div style={styles.card}>
-              <h2 style={styles.cardTitle}>➕ Add New User (Admin, Supervisor, or Guard)</h2>
+              <h2 style={styles.cardTitle}><UserIcon /> Add New User (Admin, Supervisor, or Guard)</h2>
               <form onSubmit={handleAddUser} style={styles.form}>
                 <div style={styles.formRow}>
                   <input type="email" placeholder="Email Address" value={userFormData.email} onChange={(e) => setUserFormData({ ...userFormData, email: e.target.value })} style={styles.input} required />
@@ -618,7 +664,7 @@ export default function AdminPage() {
             </div>
 
             <div style={styles.card}>
-              <h2 style={styles.cardTitle}>👤 All System Users ({users.length})</h2>
+              <h2 style={styles.cardTitle}><UserIcon /> All System Users ({users.length})</h2>
               <div style={styles.tableWrapper}>
                 <table style={styles.table}>
                   <thead>
@@ -637,13 +683,13 @@ export default function AdminPage() {
                         <td style={styles.td}>{u.full_name || "-"}</td>
                         <td style={styles.td}>
                           <span style={u.role === "admin" ? styles.badgeInside : u.role === "supervisor" ? styles.daysPresentBadge : styles.badgeOutside}>
-                            {u.role === "admin" ? "👑 Admin" : u.role === "supervisor" ? "📋 Supervisor" : "🛡️ Guard"}
+                            {u.role === "admin" ? "Admin" : u.role === "supervisor" ? "Supervisor" : "Guard"}
                           </span>
                         </td>
                         <td style={styles.td}>{new Date(u.created_at).toLocaleDateString()}</td>
                         <td style={styles.td}>
                           <button onClick={() => handleDeleteUser(u)} style={styles.deleteButton} disabled={u.id === user.id}>
-                            {u.id === user.id ? "Current User" : "🗑️ Delete"}
+                            {u.id === user.id ? "Current User" : <TrashIcon />}
                           </button>
                         </td>
                       </tr>
@@ -658,9 +704,9 @@ export default function AdminPage() {
         {/* SETTINGS TAB */}
         {activeTab === "settings" && (
           <div style={styles.card}>
-            <h2 style={styles.cardTitle}>⚙️ Settings & Maintenance</h2>
+            <h2 style={styles.cardTitle}><SettingsIcon /> Settings & Maintenance</h2>
             <div style={{ padding: 20, background: "#fef3c7", borderRadius: 8, border: "1px solid #fbbf24", marginBottom: 20 }}>
-              <h3 style={{ margin: "0 0 10px 0", color: "#92400e" }}>🗑️ Archive Old Logs</h3>
+              <h3 style={{ margin: "0 0 10px 0", color: "#92400e" }}><ArchiveIcon /> Archive Old Logs</h3>
               <p style={{ margin: "0 0 15px 0", fontSize: 14, color: "#92400e" }}>
                 Delete attendance logs older than a specified number of months to save database space.
               </p>
@@ -673,11 +719,11 @@ export default function AdminPage() {
                   <option value={12}>12 months</option>
                   <option value={24}>24 months</option>
                 </select>
-                <button onClick={handleArchive} style={styles.archiveButton}>🗑️ Delete Old Logs</button>
+                <button onClick={handleArchive} style={styles.archiveButton}><ArchiveIcon /> Delete Old Logs</button>
               </div>
             </div>
             <div style={{ padding: 20, background: "#f0f9ff", borderRadius: 8, border: "1px solid #bae6fd" }}>
-              <h3 style={{ margin: "0 0 10px 0", color: "#0369a1" }}>ℹ️ System Information</h3>
+              <h3 style={{ margin: "0 0 10px 0", color: "#0369a1" }}>System Information</h3>
               <ul style={{ margin: 0, paddingLeft: 20, fontSize: 14, color: "#0369a1" }}>
                 <li>Total Employees: {employees.length}</li>
                 <li>Total Logs: {logs.length}</li>
@@ -693,7 +739,7 @@ export default function AdminPage() {
       {editModal && (
         <div style={styles.modalOverlay} onClick={() => setEditModal(null)}>
           <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
-            <h3 style={{ margin: "0 0 20px 0", fontSize: 18 }}>✏️ Edit Employee</h3>
+            <h3 style={{ margin: "0 0 20px 0", fontSize: 18 }}><EditIcon /> Edit Employee</h3>
             <form onSubmit={handleUpdateEmployee} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               <input type="text" placeholder="Employee No" value={editFormData.employee_no} onChange={(e) => setEditFormData({ ...editFormData, employee_no: e.target.value })} style={styles.input} required />
               <input type="text" placeholder="Full Name" value={editFormData.full_name} onChange={(e) => setEditFormData({ ...editFormData, full_name: e.target.value })} style={styles.input} required />
